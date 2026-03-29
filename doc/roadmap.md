@@ -20,7 +20,9 @@ will be added once the SCDC or link training layer surfaces a consistent need fo
 
 `EqParams` ships as a placeholder in 0.1.0. Its fields will be defined once the link
 training state machine is implemented and the actual per-lane equalization knobs are
-known. At that point the struct gets `#[non_exhaustive]` removed and the fields locked.
+known. At that point the fields are locked in. `#[non_exhaustive]` is retained permanently:
+it prevents external crates from using struct literal syntax, ensuring that new fields
+can always be added without a breaking change.
 
 ### CEC line trait
 
