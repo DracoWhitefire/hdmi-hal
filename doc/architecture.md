@@ -184,6 +184,99 @@ simulated register array, without requiring real hardware or a kernel I²C drive
   exercisable with a simulated implementation. Hardware is never a test dependency.
 - **No unsafe code.** `#![forbid(unsafe_code)]` is a hard constraint. Hardware register
   access via unsafe is the implementing crate's concern, not this crate's.
+- **Extensible without forking.** The trait is the extension point. A platform with a
+  proprietary PHY, a non-standard I²C stack, or a simulated transport for testing
+  implements the relevant trait and plugs in — no source modification required anywhere
+  in the stack. This is the HAL layer's primary contribution to that stack-wide property.
 - **Stable contracts.** Trait changes are breaking changes for every implementor. The bar
   for modifying a trait surface after initial publication is high; additions go through
   careful review of what all known consumers require.
+
+---
+
+## Implementation Plan
+
+_Remove this section once complete._
+
+### 1. Crate scaffolding
+
+- Add `display-types` as a path dependency in `Cargo.toml`.
+- Replace the placeholder `lib.rs` with a proper crate root:
+  - `#![no_std]`
+  - `#![forbid(unsafe_code)]`
+  - Module declarations for `scdc`, `phy` (and later `cec`).
+
+### 2. `ScdcTransport`
+
+Define the trait in `src/scdc.rs`:
+
+```rust
+pub trait ScdcTransport {
+    type Error;
+
+    fn read(&mut self, reg: u8) -> Result<u8, Self::Error>;
+    fn write(&mut self, reg: u8, value: u8) -> Result<(), Self::Error>;
+}
+```
+
+No additional types needed here — the contract is entirely primitive.
+
+### 3. `EqParams` and `HdmiPhy`
+
+Define in `src/phy.rs`. `EqParams` is a plain struct; its fields should be driven by
+what the link training layer actually needs to pass. Start minimal — a placeholder with
+a comment noting it will be refined — rather than speculating on fields upfront.
+
+```rust
+/// Equalization parameters passed from link training feedback to the PHY.
+/// Fields will be refined as the link training layer is implemented.
+#[non_exhaustive]
+pub struct EqParams {
+    // placeholder
+}
+
+pub trait HdmiPhy {
+    type Error;
+
+    fn set_frl_rate(&mut self, rate: HdmiForumFrl) -> Result<(), Self::Error>;
+    fn adjust_equalization(&mut self, params: EqParams) -> Result<(), Self::Error>;
+    fn set_scrambling(&mut self, enabled: bool) -> Result<(), Self::Error>;
+}
+```
+
+`HdmiForumFrl` is imported from `display-types`.
+
+### 4. Publish
+
+- Fill in `Cargo.toml` metadata (description, repository, keywords, categories).
+- Write a minimal `README.md`.
+- Publish to crates.io.
+
+CEC trait is deferred until that layer is started.
+
+### 5. Example: `examples/simulate`
+
+A standalone binary crate at `examples/simulate/` demonstrating the implementation
+pattern for both traits. Since `hdmi-hal` is traits-only, the example's job is to show
+what a concrete backend looks like and how a consumer receives it — the wiring that every
+downstream crate (SCDC, link training, platform backends) will follow.
+
+```
+examples/simulate/
+    Cargo.toml   # [workspace], path dep on hdmi-hal, publish = false
+    src/
+        main.rs
+```
+
+The binary should:
+
+- Define `SimulatedScdc` backed by a `[u8; 256]` register array, implementing
+  `ScdcTransport` with `Error = Infallible`.
+- Define `SimulatedPhy` implementing `HdmiPhy`, printing each call to stdout.
+- Show a consumer function generic over `impl ScdcTransport` and `impl HdmiPhy` —
+  the signature pattern all downstream crates will use.
+- Exercise both traits: write a register, read it back, configure a rate, toggle
+  scrambling. Print the outcomes so the binary produces visible, verifiable output.
+
+The example is the first test that the public API compiles and is ergonomic to use.
+It also serves as a copy-paste starting point for anyone writing a platform backend.
