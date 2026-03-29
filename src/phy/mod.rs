@@ -1,5 +1,2 @@
 #![no_std]
 #![forbid(unsafe_code)]
-
-pub mod phy;
-pub mod scdc;
