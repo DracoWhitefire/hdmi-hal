@@ -11,4 +11,4 @@ keywords = ["hdmi", "hal", "embedded", "display", "no-std"]
 categories = ["embedded", "hardware-support", "no-std"]
 
 [dependencies]
-display-types = { path = "../display-types" }
+display-types = "0.3.1"
