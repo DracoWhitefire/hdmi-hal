@@ -212,9 +212,14 @@ simulated register array, without requiring real hardware or a kernel I²C drive
 - **Contracts only.** No implementation of any trait lives in this crate. The moment an
   implementation appears here, it becomes a platform assumption baked into a foundational
   dependency.
-- **Minimum viable surface.** Each trait exposes only what protocol logic actually needs
-  to call. PHY-specific register sequences, burst read optimisations, and hardware
-  initialization belong in backends.
+- **Spec accuracy and completeness.** Trait surfaces must not omit operations the
+  specification defines. A method left out because it seems unlikely to be needed now
+  is a missing contract that forces a breaking change or a fork later. What callers
+  choose to use is their decision; what the spec defines is the scope.
+- **Stack-ordered delivery.** The 0.1.0 release scope covers what the next layer in the
+  stack needs to function. Everything else the spec defines still gets built, but is
+  tracked on the roadmap until the layer that needs it is being implemented. This is a
+  sequencing decision, not a judgement about what is worth implementing.
 - **Raw boundaries, typed protocols.** `ScdcTransport` is intentionally byte-level.
   The typed SCDC register map belongs in the protocol crate. Mixing them would encode
   HDMI specification knowledge into what should be a pure I/O contract.
@@ -288,15 +293,22 @@ pub trait HdmiPhy {
 
 `HdmiForumFrl` is imported from `display-types`.
 
-### 4. Publish
+### 4. Roadmap
+
+Review `doc/roadmap.md` and confirm all spec-defined operations not covered by 0.1.0 are
+tracked there. At minimum: block read/write for `ScdcTransport`, full `EqParams` fields,
+CEC line trait, `hdmi-hal-async`.
+
+### 5. Publish
 
 - Fill in `Cargo.toml` metadata (description, repository, keywords, categories).
 - Write a minimal `README.md`.
-- Publish to crates.io.
+- Publish `hdmi-hal` to crates.io.
+- Reserve the `hdmi-hal-async` name on crates.io at the same time.
 
 CEC trait is deferred until that layer is started.
 
-### 5. Example: `examples/simulate`
+### 6. Example: `examples/simulate`
 
 A standalone binary crate at `examples/simulate/` demonstrating the implementation
 pattern for both traits. Since `hdmi-hal` is traits-only, the example's job is to show
