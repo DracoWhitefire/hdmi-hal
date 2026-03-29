@@ -40,14 +40,24 @@ The following are explicitly out of scope:
 `FrlRate`). It does not depend on `piaf`, `concordance`, or any other stack crate.
 
 ```
-display-types   ←   hdmi-hal   ←   scdc
-                                ←   frl-training
-                                ←   (CEC)
-                                ←   platform backends
+display-types   ←   hdmi-hal        ←   scdc
+                                    ←   frl-training
+                                    ←   (CEC)
+                                    ←   platform backends (sync)
+
+display-types   ←   hdmi-hal-async  ←   scdc (async)
+hdmi-hal        ↗                   ←   frl-training (async)
+                                    ←   platform backends (Embassy / async)
 ```
 
 `display-types` does not depend on `hdmi-hal`. The two crates share no circular
 dependency; `display-types` defines vocabulary, `hdmi-hal` defines contracts.
+
+`hdmi-hal-async` is a companion crate that mirrors each trait in `hdmi-hal` with
+`async fn` methods and identical signatures otherwise. It depends on `hdmi-hal` to
+reuse shared data types (`EqParams` and any future structs) rather than duplicating
+them. Implementors target one or both crates depending on their executor environment;
+consumers of both sync and async backends accept the relevant trait bound.
 
 ---
 
@@ -136,6 +146,34 @@ All traits in this crate must be usable in bare `no_std` environments. This mean
 
 ---
 
+## Async Compatibility
+
+`hdmi-hal` defines synchronous traits. Async variants — identical in shape, with
+`async fn` methods — live in the companion crate `hdmi-hal-async`, following the same
+split as `embedded-hal` / `embedded-hal-async`.
+
+The rules that make this work cleanly:
+
+- **Trait shapes are identical.** `hdmi-hal-async::ScdcTransport` and
+  `hdmi-hal-async::HdmiPhy` mirror their sync counterparts exactly; only method
+  signatures gain `async`. No behavioral differences, no extra associated types.
+- **Data types are shared.** `EqParams` and any other plain data structs are defined
+  in `hdmi-hal` and re-exported or referenced from `hdmi-hal-async`. There is one
+  definition of each type regardless of which trait variant the caller uses.
+- **Implementors choose one or both.** A bare-metal driver implements `hdmi-hal`
+  traits. An Embassy driver implements `hdmi-hal-async` traits. A simulator can
+  implement both. No crate is required to support both.
+- **Consumer crates are generic over the trait bound.** A link training crate that
+  needs async I/O takes `T: hdmi_hal_async::ScdcTransport`; one that is sync takes
+  `T: hdmi_hal::ScdcTransport`. The HAL layer imposes no executor dependency on sync
+  consumers.
+
+`hdmi-hal-async` is out of scope for the current implementation phase. The trait
+surfaces defined here are designed so that adding the async companion later requires
+no changes to this crate.
+
+---
+
 ## Simulated Implementations
 
 `hdmi-hal` defines the contracts; it does not provide test doubles or simulators.
@@ -191,6 +229,10 @@ simulated register array, without requiring real hardware or a kernel I²C drive
 - **Stable contracts.** Trait changes are breaking changes for every implementor. The bar
   for modifying a trait surface after initial publication is high; additions go through
   careful review of what all known consumers require.
+- **Sync / async parity.** The sync traits in this crate and the async traits in
+  `hdmi-hal-async` must stay in lockstep. A change to a trait surface here requires a
+  corresponding change to its async mirror. This is enforced by convention, not by the
+  type system.
 
 ---
 
