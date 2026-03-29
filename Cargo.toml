@@ -5,6 +5,10 @@ edition = "2024"
 rust-version = "1.85"
 readme = "README.md"
 license = "MPL-2.0"
+description = "Hardware abstraction traits for the HDMI stack"
+repository = "https://github.com/DracoWhitefire/hdmi-hal"
+keywords = ["hdmi", "hal", "embedded", "display", "no-std"]
+categories = ["embedded", "hardware-support", "no-std"]
 
 [dependencies]
 display-types = { path = "../display-types" }
