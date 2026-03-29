@@ -14,6 +14,102 @@ impl EqParams {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use display_types::cea861::hdmi_forum::HdmiForumFrl;
+
+    struct MockPhy {
+        frl_rate: Option<HdmiForumFrl>,
+        scrambling: Option<bool>,
+        eq_calls: u32,
+    }
+
+    impl MockPhy {
+        fn new() -> Self {
+            Self { frl_rate: None, scrambling: None, eq_calls: 0 }
+        }
+    }
+
+    impl HdmiPhy for MockPhy {
+        type Error = core::convert::Infallible;
+
+        fn set_frl_rate(&mut self, rate: HdmiForumFrl) -> Result<(), Self::Error> {
+            self.frl_rate = Some(rate);
+            Ok(())
+        }
+
+        fn adjust_equalization(&mut self, _params: EqParams) -> Result<(), Self::Error> {
+            self.eq_calls += 1;
+            Ok(())
+        }
+
+        fn set_scrambling(&mut self, enabled: bool) -> Result<(), Self::Error> {
+            self.scrambling = Some(enabled);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn eq_params_constructors_are_equivalent() {
+        // Verify both constructors are available; EqParams has no fields to diff yet.
+        let _a = EqParams::new();
+        let _b = EqParams::default();
+    }
+
+    #[test]
+    fn set_frl_rate_records_rate() {
+        let mut phy = MockPhy::new();
+        phy.set_frl_rate(HdmiForumFrl::Rate6Gbps4Lanes).unwrap();
+        assert_eq!(phy.frl_rate, Some(HdmiForumFrl::Rate6Gbps4Lanes));
+    }
+
+    #[test]
+    fn set_frl_rate_not_supported_is_valid() {
+        let mut phy = MockPhy::new();
+        phy.set_frl_rate(HdmiForumFrl::NotSupported).unwrap();
+        assert_eq!(phy.frl_rate, Some(HdmiForumFrl::NotSupported));
+    }
+
+    #[test]
+    fn set_frl_rate_can_be_updated() {
+        let mut phy = MockPhy::new();
+        phy.set_frl_rate(HdmiForumFrl::Rate3Gbps3Lanes).unwrap();
+        phy.set_frl_rate(HdmiForumFrl::Rate12Gbps4Lanes).unwrap();
+        assert_eq!(phy.frl_rate, Some(HdmiForumFrl::Rate12Gbps4Lanes));
+    }
+
+    #[test]
+    fn set_scrambling_enable() {
+        let mut phy = MockPhy::new();
+        phy.set_scrambling(true).unwrap();
+        assert_eq!(phy.scrambling, Some(true));
+    }
+
+    #[test]
+    fn set_scrambling_disable() {
+        let mut phy = MockPhy::new();
+        phy.set_scrambling(false).unwrap();
+        assert_eq!(phy.scrambling, Some(false));
+    }
+
+    #[test]
+    fn set_scrambling_can_be_toggled() {
+        let mut phy = MockPhy::new();
+        phy.set_scrambling(true).unwrap();
+        phy.set_scrambling(false).unwrap();
+        assert_eq!(phy.scrambling, Some(false));
+    }
+
+    #[test]
+    fn adjust_equalization_tracks_call_count() {
+        let mut phy = MockPhy::new();
+        phy.adjust_equalization(EqParams::new()).unwrap();
+        phy.adjust_equalization(EqParams::new()).unwrap();
+        assert_eq!(phy.eq_calls, 2);
+    }
+}
+
 /// PHY lane configuration for an HDMI 2.1 transmitter or receiver.
 ///
 /// Abstracts the register sequences required to configure an HDMI 2.1 PHY: lane
