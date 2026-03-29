@@ -8,6 +8,7 @@
 /// value. Typed register wrappers, named constants, and multi-register sequences belong
 /// in the `scdc` crate, not here.
 pub trait ScdcTransport {
+    /// Error type returned by transport operations.
     type Error;
 
     /// Read a single byte from the given SCDC register address.
