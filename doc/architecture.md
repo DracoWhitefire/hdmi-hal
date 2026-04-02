@@ -40,13 +40,13 @@ The following are explicitly out of scope:
 `FrlRate`). It does not depend on `piaf`, `concordance`, or any other stack crate.
 
 ```
-display-types   ←   hdmi-hal        ←   scdc
-                                    ←   frl-training
+display-types   ←   hdmi-hal        ←   culvert
+                                    ←   plumbob
                                     ←   (CEC)
                                     ←   platform backends (sync)
 
-display-types   ←   hdmi-hal-async  ←   scdc (async)
-hdmi-hal        ↗                   ←   frl-training (async)
+display-types   ←   hdmi-hal-async  ←   culvert-async
+hdmi-hal        ↗                   ←   plumbob-async
                                     ←   platform backends (Embassy / async)
 ```
 
@@ -82,7 +82,7 @@ pub trait ScdcTransport {
 
 The trait operates at the raw register level: a one-byte address and a one-byte value.
 The typed SCDC register wrappers — named constants, bitfield structs, multi-register
-sequences — belong in the `scdc` crate, not here. Keeping this boundary clean means
+sequences — belong in the `culvert` crate, not here. Keeping this boundary clean means
 `hdmi-hal` encodes no knowledge of the SCDC specification; it only describes how bytes
 move.
 
@@ -125,6 +125,20 @@ implemented.
 Like `ScdcTransport`, implementations are entirely in platform crates. The trait surface
 is driven by what the link training and mode-setting layers need to call; vendor-specific
 register sequences are an implementation detail.
+
+**Planned addition:** FRL link training (phase 4 of the training sequence) requires the
+source to drive a specific Link Training Pattern on the physical lanes in response to
+`LtpReq` signals from the sink. This will be added as:
+
+```rust
+    /// Drive a Link Training Pattern on the PHY lanes.
+    fn send_ltp(&mut self, pattern: LtpPattern) -> Result<(), Self::Error>;
+```
+
+`LtpPattern` will be a newtype defined in this crate. This keeps `hdmi-hal` free of any
+dependency on `plumbob`; the link training crate converts from its own `LtpReq` type
+to `LtpPattern` before calling the PHY. This method will be added during the
+`plumbob` implementation phase.
 
 ---
 
