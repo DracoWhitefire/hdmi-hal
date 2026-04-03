@@ -108,6 +108,9 @@ pub trait HdmiPhy {
     /// Select the FRL rate (or TMDS). Triggers the required lane reconfiguration sequence.
     fn set_frl_rate(&mut self, rate: HdmiForumFrl) -> Result<(), Self::Error>;
 
+    /// Drive a Link Training Pattern on the PHY lanes.
+    fn send_ltp(&mut self, pattern: LtpPattern) -> Result<(), Self::Error>;
+
     /// Adjust equalization parameters after link training feedback.
     fn adjust_equalization(&mut self, params: EqParams) -> Result<(), Self::Error>;
 
@@ -116,29 +119,18 @@ pub trait HdmiPhy {
 }
 ```
 
-`HdmiForumFrl` is from `display-types`. `EqParams` is a plain struct defined in this
-crate encapsulating the equalization knobs the link training layer needs to adjust
-(pre-emphasis levels, per-lane settings). Its exact shape is driven by what the link
-training state machine actually needs to call; it will be refined as that layer is
-implemented.
+`HdmiForumFrl` is from `display-types`. `LtpPattern` is a newtype defined in this crate
+wrapping the raw pattern index from the SCDC Status_Flags register (1–4 for LFSR0–LFSR3,
+0 for the exit condition). This keeps `hdmi-hal` free of any dependency on `plumbob`;
+the link training crate converts from its own `LtpReq` type to `LtpPattern` before
+calling the PHY. `EqParams` is a plain struct encapsulating the equalization knobs the
+link training layer needs to adjust (pre-emphasis levels, per-lane settings). Its exact
+shape is driven by what the link training state machine actually needs to call; it will
+be refined as that layer is implemented.
 
 Like `ScdcTransport`, implementations are entirely in platform crates. The trait surface
 is driven by what the link training and mode-setting layers need to call; vendor-specific
 register sequences are an implementation detail.
-
-**Planned addition:** FRL link training (phase 4 of the training sequence) requires the
-source to drive a specific Link Training Pattern on the physical lanes in response to
-`LtpReq` signals from the sink. This will be added as:
-
-```rust
-    /// Drive a Link Training Pattern on the PHY lanes.
-    fn send_ltp(&mut self, pattern: LtpPattern) -> Result<(), Self::Error>;
-```
-
-`LtpPattern` will be a newtype defined in this crate. This keeps `hdmi-hal` free of any
-dependency on `plumbob`; the link training crate converts from its own `LtpReq` type
-to `LtpPattern` before calling the PHY. This method will be added during the
-`plumbob` implementation phase.
 
 ---
 
