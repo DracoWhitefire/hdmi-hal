@@ -36,6 +36,28 @@ impl EqParams {
     }
 }
 
+/// PHY lane configuration for an HDMI 2.1 transmitter or receiver.
+///
+/// Abstracts the register sequences required to configure an HDMI 2.1 PHY: lane
+/// mapping, pre-emphasis, equalization, scrambling, and FRL rate selection.
+/// Vendor-specific register sequences are an implementation detail of each backend.
+pub trait HdmiPhy {
+    /// Error type returned by PHY operations.
+    type Error;
+
+    /// Select the FRL rate (or TMDS). Triggers the required lane reconfiguration sequence.
+    fn set_frl_rate(&mut self, rate: HdmiForumFrl) -> Result<(), Self::Error>;
+
+    /// Drive the given link training pattern on the physical lanes.
+    fn send_ltp(&mut self, pattern: LtpPattern) -> Result<(), Self::Error>;
+
+    /// Adjust equalization parameters after link training feedback.
+    fn adjust_equalization(&mut self, params: EqParams) -> Result<(), Self::Error>;
+
+    /// Enable or disable scrambling on the PHY.
+    fn set_scrambling(&mut self, enabled: bool) -> Result<(), Self::Error>;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -169,26 +191,4 @@ mod tests {
         phy.adjust_equalization(EqParams::new()).unwrap();
         assert_eq!(phy.eq_calls, 2);
     }
-}
-
-/// PHY lane configuration for an HDMI 2.1 transmitter or receiver.
-///
-/// Abstracts the register sequences required to configure an HDMI 2.1 PHY: lane
-/// mapping, pre-emphasis, equalization, scrambling, and FRL rate selection.
-/// Vendor-specific register sequences are an implementation detail of each backend.
-pub trait HdmiPhy {
-    /// Error type returned by PHY operations.
-    type Error;
-
-    /// Select the FRL rate (or TMDS). Triggers the required lane reconfiguration sequence.
-    fn set_frl_rate(&mut self, rate: HdmiForumFrl) -> Result<(), Self::Error>;
-
-    /// Drive the given link training pattern on the physical lanes.
-    fn send_ltp(&mut self, pattern: LtpPattern) -> Result<(), Self::Error>;
-
-    /// Adjust equalization parameters after link training feedback.
-    fn adjust_equalization(&mut self, params: EqParams) -> Result<(), Self::Error>;
-
-    /// Enable or disable scrambling on the PHY.
-    fn set_scrambling(&mut self, enabled: bool) -> Result<(), Self::Error>;
 }
