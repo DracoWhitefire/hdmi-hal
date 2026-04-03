@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-04-03
+
+### Breaking changes
+
+- **`EqParams` now has per-lane fields**: `lane0`, `lane1`, `lane2` (`LaneEqParams`)
+  and `lane3` (`Option<LaneEqParams>`, `None` in 3-lane FRL mode). Implementations of
+  `HdmiPhy::adjust_equalization` that previously ignored the empty struct should be
+  updated to read the per-lane fields. `EqParams::new()` and `EqParams::default()`
+  construct a valid zero-valued instance and are unchanged.
+
+### Added
+
+- `LaneEqParams` — per-lane equalization parameter struct, `#[non_exhaustive]`.
+  Fields will be defined as the link training layer is implemented.
+- `EqParams` and `LaneEqParams` now derive `Debug`, `Clone`, and `Copy`.
+
 ## [0.2.0] - 2026-04-03
 
 ### Breaking changes
