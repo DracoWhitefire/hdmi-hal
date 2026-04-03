@@ -1,14 +1,23 @@
 # Roadmap
 
-## Planned
+## Released
 
-### 0.1.0 — Initial release
+### 0.2.0
+
+- `LtpPattern` — newtype carrying the raw link training pattern index from the SCDC
+  Status_Flags register, passed to the PHY on each FRL training iteration.
+- `HdmiPhy::send_ltp(pattern: LtpPattern)` — new required method; drives the requested
+  pattern on the physical lanes during FRL training.
+
+### 0.1.0
 
 Trait surfaces covering what the SCDC and link training layers need to function:
 
 - `ScdcTransport` — raw register read/write over DDC/I²C
 - `HdmiPhy` — FRL rate selection, equalization adjustment, scrambling control
 - `EqParams` — placeholder struct; fields defined as link training layer is implemented
+
+## Planned
 
 ### Block read/write for `ScdcTransport`
 
