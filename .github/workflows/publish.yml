@@ -58,16 +58,16 @@ jobs:
         run: cargo fmt --check
 
       - name: Clippy
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --locked -- -D warnings
 
       - name: Docs
-        run: cargo rustdoc -- -D missing_docs
+        run: cargo rustdoc --locked -- -D missing_docs
 
       - name: Test
-        run: cargo test
+        run: cargo test --locked
 
       - name: Build (no_std)
-        run: cargo build --no-default-features
+        run: cargo build --locked --no-default-features
 
       - name: Publish
         run: cargo publish
