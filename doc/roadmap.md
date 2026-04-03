@@ -2,6 +2,16 @@
 
 ## Released
 
+### 0.3.0
+
+- `LaneEqParams` — per-lane equalization parameter struct, `#[non_exhaustive]`. Fields
+  will be defined as the link training layer is implemented.
+- `EqParams` now carries per-lane fields: `lane0`, `lane1`, `lane2` (`LaneEqParams`) and
+  `lane3` (`Option<LaneEqParams>`, `None` in 3-lane FRL mode). **Breaking change** for
+  `HdmiPhy::adjust_equalization` implementations that constructed `EqParams` directly;
+  use `EqParams::new()` or `EqParams::default()` to get a valid zero-valued instance.
+- `EqParams` and `LaneEqParams` now derive `Debug`, `Clone`, and `Copy`.
+
 ### 0.2.0
 
 - `LtpPattern` — newtype carrying the raw link training pattern index from the SCDC
@@ -25,11 +35,11 @@ Some SCDC operations benefit from burst reads — reading all CED registers in a
 I²C transaction rather than one byte at a time. A default-provided multi-byte variant
 will be added once the SCDC or link training layer surfaces a consistent need for it.
 
-### Full `EqParams` fields
+### Full `LaneEqParams` fields
 
-`EqParams` ships as a placeholder in 0.1.0. Its fields will be defined once the link
+`LaneEqParams` ships with no fields in 0.3.0. Its fields will be defined once the link
 training state machine is implemented and the actual per-lane equalization knobs are
-known. At that point the fields are locked in. `#[non_exhaustive]` is retained permanently:
+known. `#[non_exhaustive]` is retained permanently on both `EqParams` and `LaneEqParams`:
 it prevents external crates from using struct literal syntax, ensuring that new fields
 can always be added without a breaking change.
 

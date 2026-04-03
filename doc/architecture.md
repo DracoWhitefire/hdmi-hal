@@ -123,10 +123,11 @@ pub trait HdmiPhy {
 wrapping the raw pattern index from the SCDC Status_Flags register (1–4 for LFSR0–LFSR3,
 0 for the exit condition). This keeps `hdmi-hal` free of any dependency on `plumbob`;
 the link training crate converts from its own `LtpReq` type to `LtpPattern` before
-calling the PHY. `EqParams` is a plain struct encapsulating the equalization knobs the
-link training layer needs to adjust (pre-emphasis levels, per-lane settings). Its exact
-shape is driven by what the link training state machine actually needs to call; it will
-be refined as that layer is implemented.
+calling the PHY. `EqParams` carries per-lane equalization data derived from CED feedback during the FRL
+training loop: `lane0`, `lane1`, `lane2` (`LaneEqParams`) and `lane3`
+(`Option<LaneEqParams>`, `None` in 3-lane FRL mode). The fields of `LaneEqParams` will
+be defined as the link training state machine is implemented and the actual per-lane
+equalization knobs are known.
 
 Like `ScdcTransport`, implementations are entirely in platform crates. The trait surface
 is driven by what the link training and mode-setting layers need to call; vendor-specific
