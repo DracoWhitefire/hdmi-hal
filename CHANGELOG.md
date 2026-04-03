@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unit tests for `HdmiPhy` and `EqParams` via a `MockPhy` implementation in `phy::tests`.
 - Coverage ratchet CI job: measures line coverage with `cargo-llvm-cov`, checks against
   `.coverage-baseline`, and opens an automatic PR to advance the baseline when coverage improves.
+- Fixed `.coverage-baseline`: value had been written with a locale comma separator
+  (`100,00`); corrected to `100.00`.
+- Fixed coverage ratchet CI: added `LC_NUMERIC=C` to the baseline `printf` to prevent
+  locale-dependent decimal separators from corrupting `.coverage-baseline` on non-C locales.
 
 ## [0.1.0] - 2026-03-29
 
