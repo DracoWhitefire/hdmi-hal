@@ -5,7 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2026-04-03
+
+### Breaking changes
+
+- **`HdmiPhy::send_ltp` is a new required method**: existing `HdmiPhy` implementations
+  must add `send_ltp(pattern: LtpPattern) -> Result<(), Self::Error>`. The method drives
+  the link training pattern requested by the sink on the physical lanes during FRL
+  training. The raw LFSR index (1 = LFSR0, 2 = LFSR1, 3 = LFSR2, 4 = LFSR3) is
+  available via `LtpPattern::value()`.
 
 ### Added
 
