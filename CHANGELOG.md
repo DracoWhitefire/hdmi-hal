@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `LtpPattern` — newtype carrying a link training pattern index to be driven on the
+  physical lanes. Constructed by link training state machines via `LtpPattern::new(u8)`;
+  consumed by PHY backends via `LtpPattern::value() -> u8`. Raw value matches the SCDC
+  Status_Flags encoding: 1 = LFSR0, 2 = LFSR1, 3 = LFSR2, 4 = LFSR3.
+- `HdmiPhy::send_ltp(pattern: LtpPattern)` — drives the requested link training pattern
+  on the physical lanes. Called by the FRL training loop on each iteration where the sink
+  requests a non-zero pattern.
+
 ### Internal
 
 - Unit tests for `HdmiPhy` and `EqParams` via a `MockPhy` implementation in `phy::tests`.

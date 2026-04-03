@@ -1,5 +1,27 @@
 use display_types::cea861::hdmi_forum::HdmiForumFrl;
 
+/// A link training pattern to be driven on the physical lanes.
+///
+/// Produced by the link training state machine and passed to [`HdmiPhy::send_ltp`].
+/// The inner value is the raw pattern index from the SCDC Status_Flags register
+/// (`bits[7:4]`): 1 = LFSR0, 2 = LFSR1, 3 = LFSR2, 4 = LFSR3. A value of 0
+/// (no pattern) is the exit condition for the training loop and is never passed
+/// to this method.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LtpPattern(u8);
+
+impl LtpPattern {
+    /// Constructs an `LtpPattern` from the raw pattern index.
+    pub fn new(raw: u8) -> Self {
+        Self(raw)
+    }
+
+    /// Returns the raw pattern index.
+    pub fn value(self) -> u8 {
+        self.0
+    }
+}
+
 /// Equalization parameters passed from link training feedback to the PHY.
 ///
 /// Fields will be refined as the link training layer is implemented.
@@ -23,16 +45,27 @@ mod tests {
         frl_rate: Option<HdmiForumFrl>,
         scrambling: Option<bool>,
         eq_calls: u32,
+        last_ltp: Option<LtpPattern>,
     }
 
     impl MockPhy {
         fn new() -> Self {
-            Self { frl_rate: None, scrambling: None, eq_calls: 0 }
+            Self {
+                frl_rate: None,
+                scrambling: None,
+                eq_calls: 0,
+                last_ltp: None,
+            }
         }
     }
 
     impl HdmiPhy for MockPhy {
         type Error = core::convert::Infallible;
+
+        fn send_ltp(&mut self, pattern: LtpPattern) -> Result<(), Self::Error> {
+            self.last_ltp = Some(pattern);
+            Ok(())
+        }
 
         fn set_frl_rate(&mut self, rate: HdmiForumFrl) -> Result<(), Self::Error> {
             self.frl_rate = Some(rate);
@@ -48,6 +81,34 @@ mod tests {
             self.scrambling = Some(enabled);
             Ok(())
         }
+    }
+
+    #[test]
+    fn ltp_pattern_value() {
+        assert_eq!(LtpPattern(1).value(), 1);
+        assert_eq!(LtpPattern(4).value(), 4);
+    }
+
+    #[test]
+    fn ltp_pattern_clone_eq() {
+        let a = LtpPattern(2);
+        assert_eq!(a, a);
+        assert_ne!(LtpPattern(1), LtpPattern(2));
+    }
+
+    #[test]
+    fn send_ltp_records_pattern() {
+        let mut phy = MockPhy::new();
+        phy.send_ltp(LtpPattern(1)).unwrap();
+        assert_eq!(phy.last_ltp, Some(LtpPattern(1)));
+    }
+
+    #[test]
+    fn send_ltp_updates_on_each_call() {
+        let mut phy = MockPhy::new();
+        phy.send_ltp(LtpPattern(1)).unwrap();
+        phy.send_ltp(LtpPattern(3)).unwrap();
+        assert_eq!(phy.last_ltp, Some(LtpPattern(3)));
     }
 
     #[test]
@@ -121,6 +182,9 @@ pub trait HdmiPhy {
 
     /// Select the FRL rate (or TMDS). Triggers the required lane reconfiguration sequence.
     fn set_frl_rate(&mut self, rate: HdmiForumFrl) -> Result<(), Self::Error>;
+
+    /// Drive the given link training pattern on the physical lanes.
+    fn send_ltp(&mut self, pattern: LtpPattern) -> Result<(), Self::Error>;
 
     /// Adjust equalization parameters after link training feedback.
     fn adjust_equalization(&mut self, params: EqParams) -> Result<(), Self::Error>;
