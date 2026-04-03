@@ -12,6 +12,10 @@ pub struct LtpPattern(u8);
 
 impl LtpPattern {
     /// Constructs an `LtpPattern` from the raw pattern index.
+    ///
+    /// The caller is responsible for ensuring `raw` is a meaningful pattern index
+    /// (1–4 for LFSR0–LFSR3, or 0 for the exit condition). This type does not
+    /// validate the value; semantic checking belongs in the protocol layer.
     pub fn new(raw: u8) -> Self {
         Self(raw)
     }
