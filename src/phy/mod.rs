@@ -26,12 +26,32 @@ impl LtpPattern {
     }
 }
 
+/// Per-lane equalization parameters carried by [`EqParams`].
+///
+/// Fields will be defined as the link training layer is implemented and per-lane
+/// hardware requirements become known.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct LaneEqParams {}
+
 /// Equalization parameters passed from link training feedback to the PHY.
 ///
-/// Fields will be refined as the link training layer is implemented.
+/// Carries per-lane adjustment data derived from character error detection (CED)
+/// feedback during the FRL training loop. `lane3` is `None` in 3-lane FRL mode.
+///
+/// Per-lane field contents will be defined as the link training layer is implemented.
 #[non_exhaustive]
-#[derive(Default)]
-pub struct EqParams {}
+#[derive(Debug, Clone, Copy, Default)]
+pub struct EqParams {
+    /// Equalization parameters for lane 0.
+    pub lane0: LaneEqParams,
+    /// Equalization parameters for lane 1.
+    pub lane1: LaneEqParams,
+    /// Equalization parameters for lane 2.
+    pub lane2: LaneEqParams,
+    /// Equalization parameters for lane 3. `None` in 3-lane FRL mode.
+    pub lane3: Option<LaneEqParams>,
+}
 
 impl EqParams {
     /// Create a new `EqParams` with default values.
@@ -139,7 +159,6 @@ mod tests {
 
     #[test]
     fn eq_params_constructors_are_equivalent() {
-        // Verify both constructors are available; EqParams has no fields to diff yet.
         let _a = EqParams::new();
         let _b = EqParams::default();
     }
