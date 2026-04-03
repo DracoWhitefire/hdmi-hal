@@ -85,30 +85,30 @@ mod tests {
 
     #[test]
     fn ltp_pattern_value() {
-        assert_eq!(LtpPattern(1).value(), 1);
-        assert_eq!(LtpPattern(4).value(), 4);
+        assert_eq!(LtpPattern::new(1).value(), 1);
+        assert_eq!(LtpPattern::new(4).value(), 4);
     }
 
     #[test]
     fn ltp_pattern_clone_eq() {
-        let a = LtpPattern(2);
+        let a = LtpPattern::new(2);
         assert_eq!(a, a);
-        assert_ne!(LtpPattern(1), LtpPattern(2));
+        assert_ne!(LtpPattern::new(1), LtpPattern::new(2));
     }
 
     #[test]
     fn send_ltp_records_pattern() {
         let mut phy = MockPhy::new();
-        phy.send_ltp(LtpPattern(1)).unwrap();
-        assert_eq!(phy.last_ltp, Some(LtpPattern(1)));
+        phy.send_ltp(LtpPattern::new(1)).unwrap();
+        assert_eq!(phy.last_ltp, Some(LtpPattern::new(1)));
     }
 
     #[test]
     fn send_ltp_updates_on_each_call() {
         let mut phy = MockPhy::new();
-        phy.send_ltp(LtpPattern(1)).unwrap();
-        phy.send_ltp(LtpPattern(3)).unwrap();
-        assert_eq!(phy.last_ltp, Some(LtpPattern(3)));
+        phy.send_ltp(LtpPattern::new(1)).unwrap();
+        phy.send_ltp(LtpPattern::new(3)).unwrap();
+        assert_eq!(phy.last_ltp, Some(LtpPattern::new(3)));
     }
 
     #[test]
