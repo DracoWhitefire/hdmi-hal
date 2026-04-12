@@ -156,7 +156,7 @@ jobs:
           NEW="${{ steps.version.outputs.new }}"
           CURRENT="${{ steps.version.outputs.current }}"
           gh pr create \
-            --base main \
+            --base develop \
             --head "release/v${NEW}" \
             --title "Release v${NEW}" \
             --body "$(cat <<EOF

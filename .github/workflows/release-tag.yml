@@ -8,15 +8,16 @@ env:
 
 jobs:
   tag:
-    name: Create and push release tag
+    name: Promote to main and tag
     runs-on: ubuntu-latest
     permissions:
       contents: write
       actions: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: develop
           fetch-depth: 0
 
       - name: Read version from Cargo.toml
@@ -26,29 +27,29 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Tag will be: v${VERSION}"
 
-      - name: Verify release commit is on main
+      - name: Verify release commit is on develop
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           LATEST_MSG=$(git log -1 --format="%s")
           if [ "$LATEST_MSG" != "Release v${VERSION}" ]; then
-            echo "::error::Latest commit on main is '${LATEST_MSG}', not 'Release v${VERSION}'. Has the release PR been merged?"
+            echo "::error::Latest commit on develop is '${LATEST_MSG}', not 'Release v${VERSION}'. Has the release PR been merged into develop?"
             exit 1
           fi
 
-      - name: Verify CI is green on main
+      - name: Verify CI is green on develop
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           SHA=$(git rev-parse HEAD)
           CONCLUSION=$(gh run list \
-            --branch main \
+            --branch develop \
             --workflow ci.yml \
             --json headSha,conclusion \
             --limit 20 \
             | jq -r --arg sha "$SHA" \
               '[.[] | select(.headSha == $sha and .conclusion != "")] | first | .conclusion // "not-found"')
           if [ "$CONCLUSION" != "success" ]; then
-            echo "::error::CI conclusion on main@${SHA} is '${CONCLUSION}' — must be 'success' before tagging."
+            echo "::error::CI conclusion on develop@${SHA} is '${CONCLUSION}' — must be 'success' before tagging."
             exit 1
           fi
 
@@ -65,9 +66,23 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Open and merge develop → main PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PR_URL=$(gh pr create \
+            --base main \
+            --head develop \
+            --title "Release v${VERSION}" \
+            --body "Promote release v${VERSION} from develop to main.")
+          gh pr merge "$PR_URL" --merge
+
       - name: Create and push tag
         run: |
           VERSION="${{ steps.version.outputs.version }}"
+          git fetch origin main
+          git checkout main
           git tag "v${VERSION}" -m "Release v${VERSION}"
           git push origin "v${VERSION}"
           echo "Pushed tag v${VERSION} — the Publish workflow will start shortly."
