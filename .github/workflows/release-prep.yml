@@ -1,0 +1,161 @@
+name: Release Prep
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type (auto = let cargo semver-checks decide)'
+        required: true
+        default: auto
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+
+env:
+  CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-release-
+
+      - name: Install cargo-semver-checks
+        run: |
+          if ! command -v cargo-semver-checks &>/dev/null; then
+            cargo install cargo-semver-checks --locked
+          fi
+
+      - name: Determine bump type and new version
+        id: version
+        run: |
+          BUMP="${{ inputs.bump }}"
+
+          if [ "$BUMP" = "auto" ]; then
+            echo "Running cargo semver-checks to determine required bump..."
+            if cargo semver-checks --release-type patch; then
+              BUMP=patch
+            elif cargo semver-checks --release-type minor; then
+              BUMP=minor
+            else
+              BUMP=major
+            fi
+            echo "Auto-detected minimum required bump: $BUMP"
+          else
+            echo "Validating requested bump type: $BUMP"
+            if ! cargo semver-checks --release-type "$BUMP"; then
+              echo "::error::semver-checks reports '$BUMP' is insufficient for the API changes present. Choose a higher bump type."
+              exit 1
+            fi
+          fi
+
+          CURRENT=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+          MINOR=$(echo "$CURRENT" | cut -d. -f2)
+          PATCH=$(echo "$CURRENT" | cut -d. -f3)
+
+          case "$BUMP" in
+            patch) NEW="${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
+            minor) NEW="${MAJOR}.$((MINOR + 1)).0" ;;
+            major) NEW="$((MAJOR + 1)).0.0" ;;
+          esac
+
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+          echo "Current: $CURRENT → New: $NEW (bump: $BUMP)"
+
+      - name: Bump Cargo.toml version
+        run: |
+          NEW="${{ steps.version.outputs.new }}"
+          sed -i "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"${NEW}\"/" Cargo.toml
+
+      - name: Update CHANGELOG.md
+        run: |
+          NEW="${{ steps.version.outputs.new }}"
+          TODAY=$(date -u +%Y-%m-%d)
+          # Replaces the [Unreleased] header line with itself followed by a blank
+          # line and a new versioned header, so the existing content beneath it
+          # becomes the body of the new release section.
+          sed -i "s/^## \[Unreleased\]$/## [Unreleased]\n\n## [${NEW}] - ${TODAY}/" CHANGELOG.md
+
+      - name: Update README.md dependency pin
+        run: |
+          NEW="${{ steps.version.outputs.new }}"
+          MAJOR=$(echo "$NEW" | cut -d. -f1)
+          MINOR=$(echo "$NEW" | cut -d. -f2)
+          sed -i "s/hdmi-hal = \"[0-9]*\.[0-9]*\"/hdmi-hal = \"${MAJOR}.${MINOR}\"/" README.md
+
+      - name: Refresh Cargo.lock
+        # Runs without --locked so Cargo regenerates the lock file to reflect
+        # the new package version; also acts as a quick compile sanity check.
+        run: cargo check
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push release branch
+        run: |
+          NEW="${{ steps.version.outputs.new }}"
+          git checkout -b "release/v${NEW}"
+          git add Cargo.toml Cargo.lock CHANGELOG.md README.md
+          git commit -m "Release v${NEW}"
+          git push origin "release/v${NEW}"
+
+      - name: Open pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEW="${{ steps.version.outputs.new }}"
+          CURRENT="${{ steps.version.outputs.current }}"
+          gh pr create \
+            --base main \
+            --head "release/v${NEW}" \
+            --title "Release v${NEW}" \
+            --body "$(cat <<EOF
+          Automated release prep for **v${NEW}**.
+
+          | File | Change |
+          |---|---|
+          | \`Cargo.toml\` | \`${CURRENT}\` → \`${NEW}\` |
+          | \`CHANGELOG.md\` | \`[Unreleased]\` stamped with today's date |
+          | \`README.md\` | dependency pin updated |
+
+          Once CI passes and this PR merges, run the [Release Tag](${{ github.server_url }}/${{ github.repository }}/actions/workflows/release-tag.yml) workflow to push the tag and kick off publish.
+          EOF
+          )"
+
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEW="${{ steps.version.outputs.new }}"
+          gh pr merge "release/v${NEW}" --auto --merge \
+            || echo "Auto-merge not available — enable it under repo Settings → General, or merge the PR manually."
