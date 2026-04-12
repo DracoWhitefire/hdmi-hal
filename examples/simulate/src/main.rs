@@ -28,7 +28,7 @@ impl SimulatedScdc {
 impl ScdcTransport for SimulatedScdc {
     type Error = Infallible;
 
-    fn read(&mut self, reg: u8) -> Result<u8, Infallible> {
+    fn read(&self, reg: u8) -> Result<u8, Infallible> {
         // `reg` is u8 (0–255) and `registers` has exactly 256 entries, so this
         // index is always in bounds — no panic is possible.
         Ok(self.registers[reg as usize])
