@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,6 +25,32 @@ jobs:
           VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Tag will be: v${VERSION}"
+
+      - name: Verify release commit is on main
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          LATEST_MSG=$(git log -1 --format="%s")
+          if [ "$LATEST_MSG" != "Release v${VERSION}" ]; then
+            echo "::error::Latest commit on main is '${LATEST_MSG}', not 'Release v${VERSION}'. Has the release PR been merged?"
+            exit 1
+          fi
+
+      - name: Verify CI is green on main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHA=$(git rev-parse HEAD)
+          CONCLUSION=$(gh run list \
+            --branch main \
+            --workflow ci.yml \
+            --json headSha,conclusion \
+            --limit 20 \
+            | jq -r --arg sha "$SHA" \
+              '[.[] | select(.headSha == $sha and .conclusion != "")] | first | .conclusion // "not-found"')
+          if [ "$CONCLUSION" != "success" ]; then
+            echo "::error::CI conclusion on main@${SHA} is '${CONCLUSION}' — must be 'success' before tagging."
+            exit 1
+          fi
 
       - name: Check tag does not already exist
         run: |

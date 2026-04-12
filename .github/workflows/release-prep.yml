@@ -40,10 +40,15 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            ~/.cargo/bin
             target
           key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-release-
+
+      - name: Cache tools
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin
+          key: ${{ runner.os }}-cargo-tools-semver-checks-v1
 
       - name: Install cargo-semver-checks
         run: |
@@ -74,7 +79,7 @@ jobs:
             fi
           fi
 
-          CURRENT=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          CURRENT=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           MAJOR=$(echo "$CURRENT" | cut -d. -f1)
           MINOR=$(echo "$CURRENT" | cut -d. -f2)
           PATCH=$(echo "$CURRENT" | cut -d. -f3)
@@ -99,10 +104,17 @@ jobs:
         run: |
           NEW="${{ steps.version.outputs.new }}"
           TODAY=$(date -u +%Y-%m-%d)
-          # Replaces the [Unreleased] header line with itself followed by a blank
-          # line and a new versioned header, so the existing content beneath it
-          # becomes the body of the new release section.
-          sed -i "s/^## \[Unreleased\]$/## [Unreleased]\n\n## [${NEW}] - ${TODAY}/" CHANGELOG.md
+          if ! grep -q '^## \[Unreleased\]' CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [Unreleased]' section — add one before releasing."
+            exit 1
+          fi
+          # Insert the new versioned header immediately after [Unreleased], leaving
+          # that section empty for the next cycle. The original blank line that
+          # followed [Unreleased] becomes the separator before the content.
+          awk -v new_hdr="## [${NEW}] - ${TODAY}" '
+            /^## \[Unreleased\]$/ { print; print ""; print new_hdr; next }
+            { print }
+          ' CHANGELOG.md > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md
 
       - name: Update README.md dependency pin
         run: |
