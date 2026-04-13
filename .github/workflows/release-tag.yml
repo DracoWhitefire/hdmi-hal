@@ -88,4 +88,11 @@ jobs:
           git checkout main
           git tag "v${VERSION}" -m "Release v${VERSION}"
           git push origin "v${VERSION}"
-          echo "Pushed tag v${VERSION} — the Publish workflow will start shortly."
+
+      - name: Trigger publish workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          gh workflow run publish.yml --ref "v${VERSION}"
+          echo "Triggered Publish workflow for v${VERSION}."
