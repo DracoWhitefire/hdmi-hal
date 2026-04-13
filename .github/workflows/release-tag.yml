@@ -30,9 +30,9 @@ jobs:
       - name: Verify release commit is on develop
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          LATEST_MSG=$(git log -1 --format="%s")
-          if [ "$LATEST_MSG" != "Release v${VERSION}" ]; then
-            echo "::error::Latest commit on develop is '${LATEST_MSG}', not 'Release v${VERSION}'. Has the release PR been merged into develop?"
+          RELEASE_SHA=$(git log --grep="^Release v${VERSION}$" --format="%H" | head -1)
+          if [ -z "$RELEASE_SHA" ]; then
+            echo "::error::No 'Release v${VERSION}' commit found on develop. Has the release PR been merged into develop?"
             exit 1
           fi
 
