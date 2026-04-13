@@ -18,7 +18,7 @@ access over DDC/I²C, and PHY lane configuration for HDMI 2.1.
 
 ```toml
 [dependencies]
-hdmi-hal = "0.2"
+hdmi-hal = "0.4"
 ```
 
 Implement a trait against your hardware backend:
