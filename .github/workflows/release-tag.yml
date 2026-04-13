@@ -76,7 +76,10 @@ jobs:
             --head develop \
             --title "Release v${VERSION}" \
             --body "Promote release v${VERSION} from develop to main.")
-          gh pr merge "$PR_URL" --merge
+          for attempt in 1 2 3; do
+            gh pr merge "$PR_URL" --merge && break
+            [ $attempt -lt 3 ] && sleep 10
+          done
 
       - name: Create and push tag
         run: |
