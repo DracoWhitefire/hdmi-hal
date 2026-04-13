@@ -12,7 +12,7 @@ pub trait ScdcTransport {
     type Error;
 
     /// Read a single byte from the given SCDC register address.
-    fn read(&mut self, reg: u8) -> Result<u8, Self::Error>;
+    fn read(&self, reg: u8) -> Result<u8, Self::Error>;
 
     /// Write a single byte to the given SCDC register address.
     fn write(&mut self, reg: u8, value: u8) -> Result<(), Self::Error>;

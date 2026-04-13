@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.4.0] - 2026-04-13
+
+### Breaking changes
+
+- **`ScdcTransport::read` now takes `&self` instead of `&mut self`.** Implementations
+  that previously declared `fn read(&mut self, reg: u8)` must change the receiver to
+  `&self`. Implementations that mutated internal state during reads (e.g. operation
+  counters, offset tracking) must introduce interior mutability (`Cell`, `Mutex`, etc.)
+  for those fields. The `write` method is unchanged and still takes `&mut self`.
+
+  *Motivation:* register reads are logically non-mutating. The `&mut self` receiver
+  was an implementation leak from `std::fs::File` requiring `&mut` for I/O, not a
+  semantic requirement of the trait. Changing to `&self` allows transport references
+  to be shared across concurrent read operations without a `Mutex` wrapper.
+
+### Added
+
+- **SLSA Build Level 2 provenance** — release artifacts are attested via
+  `actions/attest-build-provenance` and verified with
+  `gh attestation verify <file> --repo DracoWhitefire/hdmi-hal`.
+
 ## [0.3.0] - 2026-04-03
 
 ### Breaking changes

@@ -245,3 +245,6 @@ simulated register array, without requiring real hardware or a kernel I²C drive
   `hdmi-hal-async` must stay in lockstep. A change to a trait surface here requires a
   corresponding change to its async mirror. This is enforced by convention, not by the
   type system.
+- **Attested releases.** Every release is published through a GitHub Actions workflow
+  that signs the `.crate` package with [SLSA Build Level 2](https://slsa.dev) provenance.
+  Verify with `gh attestation verify <file> --repo DracoWhitefire/hdmi-hal`.
