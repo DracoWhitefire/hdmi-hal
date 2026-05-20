@@ -9,4 +9,4 @@ publish = false
 
 [dependencies]
 hdmi-hal = { path = "../.." }
-display-types = "0.3.1"
+display-types = "0.4"
