@@ -1,3 +1,4 @@
 /target/
 /examples/simulate/target/
+/examples/simulate/Cargo.lock
 .idea/
