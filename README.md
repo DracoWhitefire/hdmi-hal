@@ -15,10 +15,8 @@ that multiple crates in the stack need to cross in a compatible way — raw SCDC
 access over DDC/I²C, and PHY lane configuration for HDMI 2.1.
 
 ## Usage
-
-```toml
-[dependencies]
-hdmi-hal = "0.4"
+```sh
+cargo add hdmi-hal
 ```
 
 Implement a trait against your hardware backend:
