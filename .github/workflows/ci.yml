@@ -49,7 +49,7 @@ jobs:
         run: cargo build --locked --no-default-features
 
       - name: Build simulate example
-        run: cargo build --locked --manifest-path examples/simulate/Cargo.toml
+        run: cargo build --manifest-path examples/simulate/Cargo.toml
 
   coverage:
     name: Coverage
