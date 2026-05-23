@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-05-20
+
+### Changed
+
+- **`display-types` dependency bumped from `0.3.1` to `0.4`.**
+
+### Internal
+
+- `examples/simulate/Cargo.lock` is no longer tracked in git and is now listed in
+  `.gitignore`, and `--locked` has been dropped from the CI build of the simulate example.
+  The simulate example is `publish = false`; committing its lock file provided no
+  reproducibility benefit and required manual updates on every version bump.
+
 ## [0.4.0] - 2026-04-13
 
 ### Breaking changes
