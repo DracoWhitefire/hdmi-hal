@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+
+- **`LtpPattern` is now a `#[non_exhaustive]` enum with the HDMI 2.1 pattern values.**
+  The previous documentation mapped 1–4 to LFSR 0–3, which was wrong: the values are
+  1 = all ones, 2 = all zeros, 3 = Nyquist clock, 4 = DDE compliance and 5–8 = LFSR 0–3.
+  `LtpPattern::new(u8)` is removed; use the variants (`LtpPattern::Lfsr0` etc.).
+  `LtpPattern::value()` remains and is now `const`.
+
 ### Internal
 
 - **Publish dispatches restricted to release tags** — `publish.yml` already accepted

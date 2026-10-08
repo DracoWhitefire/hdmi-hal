@@ -119,11 +119,16 @@ pub trait HdmiPhy {
 }
 ```
 
-`HdmiForumFrl` is from `display-types`. `LtpPattern` is a newtype defined in this crate
-wrapping the raw pattern index from the SCDC Status_Flags register (1–4 for LFSR0–LFSR3,
-0 for the exit condition). This keeps `hdmi-hal` free of any dependency on `plumbob`;
-the link training crate converts from its own `LtpReq` type to `LtpPattern` before
-calling the PHY. `EqParams` carries per-lane equalization data derived from CED feedback during the FRL
+`HdmiForumFrl` is from `display-types`. `LtpPattern` is a non-exhaustive enum defined in
+this crate naming the patterns a PHY can drive, with the SCDC values as discriminants
+(1 all ones, 2 all zeros, 3 Nyquist clock, 4 DDE compliance, 5–8 LFSR 0–3). The PHY
+has to know what each pattern is in order to generate it, so the meaning of each value
+is part of the contract between the link training crate and the PHY, and is named here
+rather than left to each backend. The link training crate keeps its own `LtpReq` type
+for the sink's raw requests, which include values that are not patterns (no pattern,
+TxFFE and rate change requests), and maps the pattern requests to `LtpPattern` before
+calling the PHY. Defining `LtpPattern` here keeps `hdmi-hal` free of any dependency on
+`plumbob`. `EqParams` carries per-lane equalization data derived from CED feedback during the FRL
 training loop: `lane0`, `lane1`, `lane2` (`LaneEqParams`) and `lane3`
 (`Option<LaneEqParams>`, `None` in 3-lane FRL mode). The fields of `LaneEqParams` will
 be defined as the link training state machine is implemented and the actual per-lane
