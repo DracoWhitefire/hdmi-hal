@@ -85,6 +85,9 @@ where
     transport.write(0x20, 0x01).unwrap();
     let val = transport.read(0x20).unwrap();
     println!("SCDC: wrote 0x01 to reg 0x20, read back 0x{val:02x}");
+    let mut block = [0u8; 2];
+    transport.read_block(0x20, &mut block).unwrap();
+    println!("SCDC: read_block from reg 0x20: {block:02x?}");
 }
 
 fn exercise_phy<P>(phy: &mut P)

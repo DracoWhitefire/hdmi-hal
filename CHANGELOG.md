@@ -35,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `LaneEqParams::tx_ffe_level` — the lane's TxFFE level, applied through
   `HdmiPhy::adjust_equalization`. Defaults to level 0.
 - `EqParams` and `LaneEqParams` now derive `PartialEq` and `Eq`.
+- `ScdcTransport::read_block(reg, buf)` — reads consecutive registers into `buf`. The
+  default implementation calls `read` once per byte, so existing transports need no
+  changes; transports that can burst-read should override it.
 
 ### Changed
 

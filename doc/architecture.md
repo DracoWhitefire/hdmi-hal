@@ -76,8 +76,11 @@ the SCDC register map does so through this trait.
 pub trait ScdcTransport {
     type Error;
 
-    fn read(&mut self, reg: u8) -> Result<u8, Self::Error>;
+    fn read(&self, reg: u8) -> Result<u8, Self::Error>;
     fn write(&mut self, reg: u8, value: u8) -> Result<(), Self::Error>;
+
+    /// Default: one `read` per byte. Override for a single burst transaction.
+    fn read_block(&self, reg: u8, buf: &mut [u8]) -> Result<(), Self::Error> { ... }
 }
 ```
 
@@ -90,10 +93,12 @@ move.
 The associated `Error` type is bounded by the implementing crate. A hardware backend
 exposes its own I²C error type; a simulator may use `Infallible`.
 
-**Block read/write.** Some SCDC operations benefit from burst reads (e.g. reading all
-CED registers in a single transaction). A default-provided multi-byte variant may be
-added here if it surfaces as a consistent need across consumers; for now, single-register
-access is the defined contract.
+**Block reads.** `read_block` reads consecutive registers into a buffer. Its default
+implementation is built on `read`, so existing transports keep working unchanged;
+transports that can burst-read override it so that related registers, such as the
+status flags the link training crate polls or the CED counters, are read in one
+transaction. A read past `0xFF` wraps to `0x00` in the default implementation. There is
+no block write: no consumer needs one yet.
 
 ---
 
