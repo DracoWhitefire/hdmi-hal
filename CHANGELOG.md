@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- **Publish dispatches restricted to release tags** — `publish.yml` already accepted
+  `workflow_dispatch` (used by `release-tag`), but a dispatch against a branch such as
+  `main` would have published the version on that branch and created a GitHub release
+  named after the branch. Dispatches against a non-tag ref are now skipped, so they cannot
+  publish or create a release.
+
 ## [0.4.1] - 2026-05-20
 
 ### Changed
