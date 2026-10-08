@@ -52,7 +52,7 @@ impl HdmiPhy for SimulatedPhy {
     }
 
     fn send_ltp(&mut self, pattern: LtpPattern) -> Result<(), Infallible> {
-        println!("PHY: send_ltp({})", pattern.value());
+        println!("PHY: send_ltp({pattern:?})");
         Ok(())
     }
 
@@ -88,7 +88,7 @@ where
     P::Error: core::fmt::Debug,
 {
     phy.set_frl_rate(HdmiForumFrl::Rate6Gbps4Lanes).unwrap();
-    phy.send_ltp(LtpPattern::new(1)).unwrap(); // LFSR0
+    phy.send_ltp(LtpPattern::Lfsr0).unwrap();
     phy.adjust_equalization(EqParams::new()).unwrap();
     phy.set_scrambling(true).unwrap();
 }

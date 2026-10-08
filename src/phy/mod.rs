@@ -3,26 +3,35 @@ use display_types::cea861::hdmi_forum::HdmiForumFrl;
 /// A link training pattern to be driven on the physical lanes.
 ///
 /// Produced by the link training state machine and passed to [`HdmiPhy::send_ltp`].
-/// The inner value is the raw pattern index from the SCDC Status_Flags register
-/// (`bits[7:4]`): 1 = LFSR0, 2 = LFSR1, 3 = LFSR2, 4 = LFSR3. A value of 0
-/// (no pattern) is the exit condition for the training loop and is never passed
-/// to this method.
+/// The discriminants are the pattern values a sink requests in the SCDC Status_Flags
+/// LTP fields. Request values that are not patterns (0 for no pattern, and the TxFFE
+/// and rate change requests) are handled by the link training layer and have no variant.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LtpPattern(u8);
+#[repr(u8)]
+pub enum LtpPattern {
+    /// All ones.
+    AllOnes = 1,
+    /// All zeros.
+    AllZeros = 2,
+    /// Nyquist clock pattern.
+    NyquistClock = 3,
+    /// DDE (Data Dependent Equalization) compliance pattern.
+    DdeCompliance = 4,
+    /// LFSR pattern 0.
+    Lfsr0 = 5,
+    /// LFSR pattern 1.
+    Lfsr1 = 6,
+    /// LFSR pattern 2.
+    Lfsr2 = 7,
+    /// LFSR pattern 3.
+    Lfsr3 = 8,
+}
 
 impl LtpPattern {
-    /// Constructs an `LtpPattern` from the raw pattern index.
-    ///
-    /// The caller is responsible for ensuring `raw` is a meaningful pattern index
-    /// (1–4 for LFSR0–LFSR3, or 0 for the exit condition). This type does not
-    /// validate the value; semantic checking belongs in the protocol layer.
-    pub fn new(raw: u8) -> Self {
-        Self(raw)
-    }
-
-    /// Returns the raw pattern index.
-    pub fn value(self) -> u8 {
-        self.0
+    /// Returns the pattern's SCDC value (1–8).
+    pub const fn value(self) -> u8 {
+        self as u8
     }
 }
 
@@ -130,31 +139,37 @@ mod tests {
     }
 
     #[test]
-    fn ltp_pattern_value() {
-        assert_eq!(LtpPattern::new(1).value(), 1);
-        assert_eq!(LtpPattern::new(4).value(), 4);
+    fn ltp_pattern_values_match_scdc_encoding() {
+        assert_eq!(LtpPattern::AllOnes.value(), 1);
+        assert_eq!(LtpPattern::AllZeros.value(), 2);
+        assert_eq!(LtpPattern::NyquistClock.value(), 3);
+        assert_eq!(LtpPattern::DdeCompliance.value(), 4);
+        assert_eq!(LtpPattern::Lfsr0.value(), 5);
+        assert_eq!(LtpPattern::Lfsr1.value(), 6);
+        assert_eq!(LtpPattern::Lfsr2.value(), 7);
+        assert_eq!(LtpPattern::Lfsr3.value(), 8);
     }
 
     #[test]
     fn ltp_pattern_clone_eq() {
-        let a = LtpPattern::new(2);
+        let a = LtpPattern::Lfsr1;
         assert_eq!(a, a);
-        assert_ne!(LtpPattern::new(1), LtpPattern::new(2));
+        assert_ne!(LtpPattern::Lfsr0, LtpPattern::Lfsr1);
     }
 
     #[test]
     fn send_ltp_records_pattern() {
         let mut phy = MockPhy::new();
-        phy.send_ltp(LtpPattern::new(1)).unwrap();
-        assert_eq!(phy.last_ltp, Some(LtpPattern::new(1)));
+        phy.send_ltp(LtpPattern::Lfsr0).unwrap();
+        assert_eq!(phy.last_ltp, Some(LtpPattern::Lfsr0));
     }
 
     #[test]
     fn send_ltp_updates_on_each_call() {
         let mut phy = MockPhy::new();
-        phy.send_ltp(LtpPattern::new(1)).unwrap();
-        phy.send_ltp(LtpPattern::new(3)).unwrap();
-        assert_eq!(phy.last_ltp, Some(LtpPattern::new(3)));
+        phy.send_ltp(LtpPattern::Lfsr0).unwrap();
+        phy.send_ltp(LtpPattern::Lfsr2).unwrap();
+        assert_eq!(phy.last_ltp, Some(LtpPattern::Lfsr2));
     }
 
     #[test]
