@@ -108,8 +108,8 @@ pub trait HdmiPhy {
     /// Select the FRL rate (or TMDS). Triggers the required lane reconfiguration sequence.
     fn set_frl_rate(&mut self, rate: HdmiForumFrl) -> Result<(), Self::Error>;
 
-    /// Drive a Link Training Pattern on the PHY lanes.
-    fn send_ltp(&mut self, pattern: LtpPattern) -> Result<(), Self::Error>;
+    /// Drive the given link training patterns on the physical lanes, one per lane.
+    fn send_ltp(&mut self, patterns: LanePatterns) -> Result<(), Self::Error>;
 
     /// Adjust equalization parameters after link training feedback.
     fn adjust_equalization(&mut self, params: EqParams) -> Result<(), Self::Error>;
@@ -128,7 +128,11 @@ rather than left to each backend. The link training crate keeps its own `LtpReq`
 for the sink's raw requests, which include values that are not patterns (no pattern,
 TxFFE and rate change requests), and maps the pattern requests to `LtpPattern` before
 calling the PHY. Defining `LtpPattern` here keeps `hdmi-hal` free of any dependency on
-`plumbob`. `EqParams` carries per-lane equalization data derived from CED feedback during the FRL
+`plumbob`. `send_ltp` takes `LanePatterns`, the full per-lane set: `lane0` to `lane3`,
+each an `Option<LtpPattern>` where `None` means no training pattern on that lane (and
+`lane3` is `None` in 3-lane FRL mode). The PHY applies the set as given; the link training
+crate tracks which pattern each lane carries, since a sink's request can leave a lane's
+previous pattern in place. `EqParams` carries per-lane equalization data derived from CED feedback during the FRL
 training loop: `lane0`, `lane1`, `lane2` (`LaneEqParams`) and `lane3`
 (`Option<LaneEqParams>`, `None` in 3-lane FRL mode). The fields of `LaneEqParams` will
 be defined as the link training state machine is implemented and the actual per-lane

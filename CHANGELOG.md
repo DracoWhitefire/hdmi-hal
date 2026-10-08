@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   1 = all ones, 2 = all zeros, 3 = Nyquist clock, 4 = DDE compliance and 5–8 = LFSR 0–3.
   `LtpPattern::new(u8)` is removed; use the variants (`LtpPattern::Lfsr0` etc.).
   `LtpPattern::value()` remains and is now `const`.
+- **`HdmiPhy::send_ltp` takes the full per-lane pattern set**: the signature is now
+  `send_ltp(patterns: LanePatterns)`. HDMI 2.1 sinks request a pattern per lane, so a
+  single pattern for all lanes could not express training. `None` on a lane means no
+  training pattern; `None` on every lane stops the training patterns.
+
+### Added
+
+- `LanePatterns` — the link training pattern for each lane (`lane0` to `lane3`, each an
+  `Option<LtpPattern>`; `lane3` is `None` in 3-lane FRL mode). Derives `Default` (no
+  pattern on any lane), `Debug`, `Clone`, `Copy`, `PartialEq` and `Eq`.
 
 ### Internal
 
