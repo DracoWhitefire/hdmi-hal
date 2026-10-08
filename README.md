@@ -12,7 +12,8 @@ Hardware abstraction traits for the HDMI stack.
 `hdmi-hal` defines the behavioral contracts between protocol logic and hardware. It is a
 traits-only crate: no implementations live here. Every trait expresses an I/O boundary
 that multiple crates in the stack need to cross in a compatible way — raw SCDC register
-access over DDC/I²C, and PHY lane configuration for HDMI 2.1.
+access over DDC/I²C, and HDMI 2.1 transmitter PHY control (link-level FRL and TMDS
+behaviour and analog lane configuration).
 
 ## Usage
 ```sh

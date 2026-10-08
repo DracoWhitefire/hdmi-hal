@@ -17,7 +17,8 @@ are only ever used by a single library stay in that library.
 `hdmi-hal` covers:
 
 - `ScdcTransport` — raw register read/write access to the SCDC register map over DDC/I²C
-- `HdmiPhy` — PHY lane configuration: FRL rate, equalization, scrambling
+- `HdmiPhy` — transmitter PHY control: FRL rate, link training patterns, FRL output
+  mode, scrambling and equalization
 - CEC line access trait — when CEC is implemented
 
 The following are explicitly out of scope:
@@ -98,8 +99,9 @@ access is the defined contract.
 
 ### `HdmiPhy`
 
-Abstracts the register sequences required to configure an HDMI 2.1 PHY: lane mapping,
-pre-emphasis, equalization, scrambling, and FRL rate selection.
+Covers an HDMI 2.1 transmitter PHY's link-level FRL and TMDS behaviour (FRL rate
+selection, link training patterns, FRL output mode and scrambling) as well as analog lane
+configuration (lane mapping, pre-emphasis and equalization).
 
 ```rust
 pub trait HdmiPhy {
@@ -110,6 +112,10 @@ pub trait HdmiPhy {
 
     /// Drive the given link training patterns on the physical lanes, one per lane.
     fn send_ltp(&mut self, patterns: LanePatterns) -> Result<(), Self::Error>;
+
+    /// Select what the transmitter sends on the FRL lanes: gap characters only, or video,
+    /// data islands and control periods.
+    fn set_frl_output(&mut self, output: FrlOutput) -> Result<(), Self::Error>;
 
     /// Adjust equalization parameters after link training feedback.
     fn adjust_equalization(&mut self, params: EqParams) -> Result<(), Self::Error>;
@@ -139,6 +145,14 @@ TxFFE level as a `TxFfeLevel`, a newtype that only holds 0–7, so a PHY backend
 an out-of-range level. The lower maximum that applies at some FRL rates is advertised to
 the sink by the link training crate, which keeps each lane's level within it.
 `LaneEqParams` stays `#[non_exhaustive]` so further per-lane settings can be added.
+
+`set_frl_output` takes `FrlOutput`: `GapOnly` (gap characters only, during link training
+and while waiting for the sink to start FRL) or `Active` (video, data islands and control
+periods, set once training has succeeded). It is part of `HdmiPhy` because both the link
+training crate and the integration layer drive it, and because `HdmiPhy` already carries
+link-level operations such as `set_scrambling` and `send_ltp`. `FrlOutput` is
+deliberately not `#[non_exhaustive]`: a PHY has to implement every output mode, so a
+new mode would be a breaking change.
 
 Like `ScdcTransport`, implementations are entirely in platform crates. The trait surface
 is driven by what the link training and mode-setting layers need to call; vendor-specific

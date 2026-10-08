@@ -18,17 +18,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `send_ltp(patterns: LanePatterns)`. HDMI 2.1 sinks request a pattern per lane, so a
   single pattern for all lanes could not express training. `None` on a lane means no
   training pattern; `None` on every lane stops the training patterns.
+- **`HdmiPhy::set_frl_output` is a new required method**: existing `HdmiPhy`
+  implementations must add `set_frl_output(output: FrlOutput) -> Result<(), Self::Error>`.
+  It selects gap-only output during link training and active output once training has
+  succeeded.
 
 ### Added
 
 - `LanePatterns` — the link training pattern for each lane (`lane0` to `lane3`, each an
   `Option<LtpPattern>`; `lane3` is `None` in 3-lane FRL mode). Derives `Default` (no
   pattern on any lane), `Debug`, `Clone`, `Copy`, `PartialEq` and `Eq`.
+- `FrlOutput` — what the transmitter sends on the FRL lanes: `GapOnly` (gap characters
+  only) or `Active` (video, data islands and control periods).
 - `TxFfeLevel` — a TxFFE level index, 0–7. `TxFfeLevel::new(u8)` returns `None` above 7;
   `TxFfeLevel::MAX` is level 7 and the default is level 0. Read with `value()`.
 - `LaneEqParams::tx_ffe_level` — the lane's TxFFE level, applied through
   `HdmiPhy::adjust_equalization`. Defaults to level 0.
 - `EqParams` and `LaneEqParams` now derive `PartialEq` and `Eq`.
+
+### Changed
+
+- `HdmiPhy`'s documentation now describes it as covering the transmitter's link-level
+  FRL and TMDS behaviour as well as analog lane configuration.
 
 ### Internal
 

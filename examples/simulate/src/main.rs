@@ -8,7 +8,7 @@
 
 use core::convert::Infallible;
 use display_types::cea861::hdmi_forum::HdmiForumFrl;
-use hdmi_hal::phy::{EqParams, HdmiPhy, LanePatterns, LtpPattern, TxFfeLevel};
+use hdmi_hal::phy::{EqParams, FrlOutput, HdmiPhy, LanePatterns, LtpPattern, TxFfeLevel};
 use hdmi_hal::scdc::ScdcTransport;
 
 // --- Simulated backends ----------------------------------------------------------
@@ -56,6 +56,11 @@ impl HdmiPhy for SimulatedPhy {
         Ok(())
     }
 
+    fn set_frl_output(&mut self, output: FrlOutput) -> Result<(), Infallible> {
+        println!("PHY: set_frl_output({output:?})");
+        Ok(())
+    }
+
     fn adjust_equalization(&mut self, params: EqParams) -> Result<(), Infallible> {
         println!("PHY: adjust_equalization({params:?})");
         Ok(())
@@ -98,7 +103,10 @@ where
     let mut eq = EqParams::new();
     eq.lane0.tx_ffe_level = TxFfeLevel::new(1).unwrap();
     phy.adjust_equalization(eq).unwrap();
+    phy.send_ltp(LanePatterns::default()).unwrap();
+    phy.set_frl_output(FrlOutput::GapOnly).unwrap();
     phy.set_scrambling(true).unwrap();
+    phy.set_frl_output(FrlOutput::Active).unwrap();
 }
 
 // --------------------------------------------------------------------------------
