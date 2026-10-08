@@ -35,6 +35,24 @@ impl LtpPattern {
     }
 }
 
+/// The link training pattern for each lane, passed to [`HdmiPhy::send_ltp`].
+///
+/// Always the full per-lane set: the PHY applies it as given, and the link training
+/// layer tracks which pattern each lane carries. `None` means no training pattern on
+/// that lane; `None` on every lane stops the training patterns. `lane3` is `None` in
+/// 3-lane FRL mode.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LanePatterns {
+    /// Pattern for lane 0.
+    pub lane0: Option<LtpPattern>,
+    /// Pattern for lane 1.
+    pub lane1: Option<LtpPattern>,
+    /// Pattern for lane 2.
+    pub lane2: Option<LtpPattern>,
+    /// Pattern for lane 3. `None` in 3-lane FRL mode.
+    pub lane3: Option<LtpPattern>,
+}
+
 /// Per-lane equalization parameters carried by [`EqParams`].
 ///
 /// Fields will be defined as the link training layer is implemented and per-lane
@@ -81,8 +99,8 @@ pub trait HdmiPhy {
     /// Select the FRL rate (or TMDS). Triggers the required lane reconfiguration sequence.
     fn set_frl_rate(&mut self, rate: HdmiForumFrl) -> Result<(), Self::Error>;
 
-    /// Drive the given link training pattern on the physical lanes.
-    fn send_ltp(&mut self, pattern: LtpPattern) -> Result<(), Self::Error>;
+    /// Drive the given link training patterns on the physical lanes, one per lane.
+    fn send_ltp(&mut self, patterns: LanePatterns) -> Result<(), Self::Error>;
 
     /// Adjust equalization parameters after link training feedback.
     fn adjust_equalization(&mut self, params: EqParams) -> Result<(), Self::Error>;
@@ -100,7 +118,7 @@ mod tests {
         frl_rate: Option<HdmiForumFrl>,
         scrambling: Option<bool>,
         eq_calls: u32,
-        last_ltp: Option<LtpPattern>,
+        last_ltp: Option<LanePatterns>,
     }
 
     impl MockPhy {
@@ -117,8 +135,8 @@ mod tests {
     impl HdmiPhy for MockPhy {
         type Error = core::convert::Infallible;
 
-        fn send_ltp(&mut self, pattern: LtpPattern) -> Result<(), Self::Error> {
-            self.last_ltp = Some(pattern);
+        fn send_ltp(&mut self, patterns: LanePatterns) -> Result<(), Self::Error> {
+            self.last_ltp = Some(patterns);
             Ok(())
         }
 
@@ -158,18 +176,41 @@ mod tests {
     }
 
     #[test]
-    fn send_ltp_records_pattern() {
+    fn lane_patterns_default_is_no_pattern() {
+        let p = LanePatterns::default();
+        assert_eq!(p.lane0, None);
+        assert_eq!(p.lane1, None);
+        assert_eq!(p.lane2, None);
+        assert_eq!(p.lane3, None);
+    }
+
+    #[test]
+    fn send_ltp_records_patterns() {
         let mut phy = MockPhy::new();
-        phy.send_ltp(LtpPattern::Lfsr0).unwrap();
-        assert_eq!(phy.last_ltp, Some(LtpPattern::Lfsr0));
+        let patterns = LanePatterns {
+            lane0: Some(LtpPattern::Lfsr0),
+            lane1: Some(LtpPattern::Lfsr1),
+            lane2: Some(LtpPattern::Lfsr2),
+            lane3: None,
+        };
+        phy.send_ltp(patterns).unwrap();
+        assert_eq!(phy.last_ltp, Some(patterns));
     }
 
     #[test]
     fn send_ltp_updates_on_each_call() {
         let mut phy = MockPhy::new();
-        phy.send_ltp(LtpPattern::Lfsr0).unwrap();
-        phy.send_ltp(LtpPattern::Lfsr2).unwrap();
-        assert_eq!(phy.last_ltp, Some(LtpPattern::Lfsr2));
+        let first = LanePatterns {
+            lane0: Some(LtpPattern::Lfsr0),
+            ..LanePatterns::default()
+        };
+        let second = LanePatterns {
+            lane0: Some(LtpPattern::NyquistClock),
+            ..first
+        };
+        phy.send_ltp(first).unwrap();
+        phy.send_ltp(second).unwrap();
+        assert_eq!(phy.last_ltp, Some(second));
     }
 
     #[test]
