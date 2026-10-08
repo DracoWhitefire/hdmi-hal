@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `LanePatterns` — the link training pattern for each lane (`lane0` to `lane3`, each an
   `Option<LtpPattern>`; `lane3` is `None` in 3-lane FRL mode). Derives `Default` (no
   pattern on any lane), `Debug`, `Clone`, `Copy`, `PartialEq` and `Eq`.
+- `TxFfeLevel` — a TxFFE level index, 0–7. `TxFfeLevel::new(u8)` returns `None` above 7;
+  `TxFfeLevel::MAX` is level 7 and the default is level 0. Read with `value()`.
+- `LaneEqParams::tx_ffe_level` — the lane's TxFFE level, applied through
+  `HdmiPhy::adjust_equalization`. Defaults to level 0.
+- `EqParams` and `LaneEqParams` now derive `PartialEq` and `Eq`.
 
 ### Internal
 

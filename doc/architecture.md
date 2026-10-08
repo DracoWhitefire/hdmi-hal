@@ -134,9 +134,11 @@ each an `Option<LtpPattern>` where `None` means no training pattern on that lane
 crate tracks which pattern each lane carries, since a sink's request can leave a lane's
 previous pattern in place. `EqParams` carries per-lane equalization data derived from CED feedback during the FRL
 training loop: `lane0`, `lane1`, `lane2` (`LaneEqParams`) and `lane3`
-(`Option<LaneEqParams>`, `None` in 3-lane FRL mode). The fields of `LaneEqParams` will
-be defined as the link training state machine is implemented and the actual per-lane
-equalization knobs are known.
+(`Option<LaneEqParams>`, `None` in 3-lane FRL mode). `LaneEqParams` carries the lane's
+TxFFE level as a `TxFfeLevel`, a newtype that only holds 0–7, so a PHY backend never sees
+an out-of-range level. The lower maximum that applies at some FRL rates is advertised to
+the sink by the link training crate, which keeps each lane's level within it.
+`LaneEqParams` stays `#[non_exhaustive]` so further per-lane settings can be added.
 
 Like `ScdcTransport`, implementations are entirely in platform crates. The trait surface
 is driven by what the link training and mode-setting layers need to call; vendor-specific

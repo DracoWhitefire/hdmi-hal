@@ -53,22 +53,47 @@ pub struct LanePatterns {
     pub lane3: Option<LtpPattern>,
 }
 
-/// Per-lane equalization parameters carried by [`EqParams`].
+/// A TxFFE (transmitter feed-forward equalization) level index, 0–7.
 ///
-/// Fields will be defined as the link training layer is implemented and per-lane
-/// hardware requirements become known.
+/// The level a lane's transmitter applies during FRL training. The range is checked on
+/// construction; the lower per-rate limit the source advertises to the sink is the link
+/// training layer's concern.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct TxFfeLevel(u8);
+
+impl TxFfeLevel {
+    /// The highest TxFFE level, 7.
+    pub const MAX: Self = Self(7);
+
+    /// Returns the level for `level`, or `None` if it is above 7.
+    pub const fn new(level: u8) -> Option<Self> {
+        if level <= Self::MAX.0 {
+            Some(Self(level))
+        } else {
+            None
+        }
+    }
+
+    /// Returns the level index (0–7).
+    pub const fn value(self) -> u8 {
+        self.0
+    }
+}
+
+/// Per-lane equalization parameters carried by [`EqParams`].
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, Default)]
-pub struct LaneEqParams {}
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LaneEqParams {
+    /// TxFFE level for the lane. Defaults to 0.
+    pub tx_ffe_level: TxFfeLevel,
+}
 
 /// Equalization parameters passed from link training feedback to the PHY.
 ///
 /// Carries per-lane adjustment data derived from character error detection (CED)
 /// feedback during the FRL training loop. `lane3` is `None` in 3-lane FRL mode.
-///
-/// Per-lane field contents will be defined as the link training layer is implemented.
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct EqParams {
     /// Equalization parameters for lane 0.
     pub lane0: LaneEqParams,
@@ -118,6 +143,7 @@ mod tests {
         frl_rate: Option<HdmiForumFrl>,
         scrambling: Option<bool>,
         eq_calls: u32,
+        last_eq: Option<EqParams>,
         last_ltp: Option<LanePatterns>,
     }
 
@@ -127,6 +153,7 @@ mod tests {
                 frl_rate: None,
                 scrambling: None,
                 eq_calls: 0,
+                last_eq: None,
                 last_ltp: None,
             }
         }
@@ -145,8 +172,9 @@ mod tests {
             Ok(())
         }
 
-        fn adjust_equalization(&mut self, _params: EqParams) -> Result<(), Self::Error> {
+        fn adjust_equalization(&mut self, params: EqParams) -> Result<(), Self::Error> {
             self.eq_calls += 1;
+            self.last_eq = Some(params);
             Ok(())
         }
 
@@ -261,6 +289,43 @@ mod tests {
         phy.set_scrambling(true).unwrap();
         phy.set_scrambling(false).unwrap();
         assert_eq!(phy.scrambling, Some(false));
+    }
+
+    #[test]
+    fn tx_ffe_level_accepts_0_to_7() {
+        for level in 0..=7 {
+            assert_eq!(TxFfeLevel::new(level).map(TxFfeLevel::value), Some(level));
+        }
+    }
+
+    #[test]
+    fn tx_ffe_level_rejects_above_7() {
+        assert_eq!(TxFfeLevel::new(8), None);
+        assert_eq!(TxFfeLevel::new(u8::MAX), None);
+    }
+
+    #[test]
+    fn tx_ffe_level_max_and_default() {
+        assert_eq!(TxFfeLevel::MAX.value(), 7);
+        assert_eq!(TxFfeLevel::default().value(), 0);
+        assert!(TxFfeLevel::default() < TxFfeLevel::MAX);
+    }
+
+    #[test]
+    fn lane_eq_params_default_tx_ffe_level_is_0() {
+        assert_eq!(LaneEqParams::default().tx_ffe_level, TxFfeLevel::default());
+    }
+
+    #[test]
+    fn adjust_equalization_records_per_lane_levels() {
+        let mut phy = MockPhy::new();
+        let mut params = EqParams::new();
+        params.lane1.tx_ffe_level = TxFfeLevel::MAX;
+        phy.adjust_equalization(params).unwrap();
+        let last = phy.last_eq.unwrap();
+        assert_eq!(last, params);
+        assert_eq!(last.lane0.tx_ffe_level.value(), 0);
+        assert_eq!(last.lane1.tx_ffe_level.value(), 7);
     }
 
     #[test]
