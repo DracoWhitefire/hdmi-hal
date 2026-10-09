@@ -57,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI builds for a `no_std` target** — the `Build (no_std)` step now builds for
   `thumbv7em-none-eabi`. It previously built for the host, where `std` is always
   available, so it could not catch a dependency that requires `std`.
+  The publish workflow runs the same build steps.
 - **Publish dispatches restricted to release tags** — `publish.yml` already accepted
   `workflow_dispatch` (used by `release-tag`), but a dispatch against a branch such as
   `main` would have published the version on that branch and created a GitHub release
