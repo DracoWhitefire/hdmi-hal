@@ -64,7 +64,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   named after the branch. Dispatches against a non-tag ref are now skipped, so they cannot
   publish or create a release.
 
-## [0.4.1] - 2026-05-20
+## [0.4.1] - 2026-05-20 [YANKED]
+
+Yanked: moving to display-types 0.4 changed the `HdmiForumFrl` type in `HdmiPhy`'s
+signature, a breaking change released as a patch. Crates that depend on hdmi-hal 0.4 and
+display-types 0.3, such as plumbob 0.1.3, failed to build against it. The change is
+released again in 0.5.
 
 ### Changed
 
