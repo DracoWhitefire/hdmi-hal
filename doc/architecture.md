@@ -180,6 +180,9 @@ All traits in this crate must be usable in bare `no_std` environments. This mean
 - No trait method may require allocation.
 - `Error` associated types may be `Infallible` in no-alloc implementations.
 - No default implementations may bring in `std` dependencies.
+- Dependencies are declared with `default-features = false`, so they cannot enable `std`
+  for crates further up the stack. CI builds the crate for `thumbv7em-none-eabi`, a
+  target without `std`.
 
 ---
 
