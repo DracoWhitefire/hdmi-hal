@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The previous documentation mapped 1–4 to LFSR 0–3, which was wrong: the values are
   1 = all ones, 2 = all zeros, 3 = Nyquist clock, 4 = DDE compliance and 5–8 = LFSR 0–3.
   `LtpPattern::new(u8)` is removed; use the variants (`LtpPattern::Lfsr0` etc.).
-  `LtpPattern::value()` remains and is now `const`.
+  `LtpPattern::value()` remains and is now `const`. The enum is `#[repr(u8)]`, with each
+  variant's discriminant its pattern value.
 - **`HdmiPhy::send_ltp` takes the full per-lane pattern set**: the signature is now
   `send_ltp(patterns: LanePatterns)`. HDMI 2.1 sinks request a pattern per lane, so a
   single pattern for all lanes could not express training. `None` on a lane means no
@@ -29,9 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Option<LtpPattern>`; `lane3` is `None` in 3-lane FRL mode). Derives `Default` (no
   pattern on any lane), `Debug`, `Clone`, `Copy`, `PartialEq` and `Eq`.
 - `FrlOutput` — what the transmitter sends on the FRL lanes: `GapOnly` (gap characters
-  only) or `Active` (video, data islands and control periods).
+  only) or `Active` (video, data islands and control periods). Derives `Debug`, `Clone`,
+  `Copy`, `PartialEq` and `Eq`.
 - `TxFfeLevel` — a TxFFE level index, 0–7. `TxFfeLevel::new(u8)` returns `None` above 7;
-  `TxFfeLevel::MAX` is level 7 and the default is level 0. Read with `value()`.
+  `TxFfeLevel::MAX` is level 7 and the default is level 0. Read with `value()`. Derives
+  `Debug`, `Clone`, `Copy`, `Default`, `PartialEq`, `Eq`, `PartialOrd` and `Ord`, so levels
+  compare in order.
 - `LaneEqParams::tx_ffe_level` — the lane's TxFFE level, applied through
   `HdmiPhy::adjust_equalization`. Defaults to level 0.
 - `EqParams` and `LaneEqParams` now derive `PartialEq` and `Eq`.
