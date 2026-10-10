@@ -30,7 +30,7 @@ struct MyI2cBackend { /* ... */ }
 impl ScdcTransport for MyI2cBackend {
     type Error = MyError;
 
-    fn read(&mut self, reg: u8) -> Result<u8, MyError> { /* ... */ }
+    fn read(&self, reg: u8) -> Result<u8, MyError> { /* ... */ }
     fn write(&mut self, reg: u8, value: u8) -> Result<(), MyError> { /* ... */ }
 }
 ```
@@ -58,13 +58,13 @@ dependency on the rest of the stack; protocol crates depend on it, not the rever
 flowchart LR
     dt["display-types"]
     hal["hdmi-hal"]
-    scdc["scdc"]
-    frl["frl-training"]
-    be["platform backends"]
+    culvert["culvert"]
+    plumbob["plumbob"]
+    be["platform backends (e.g. hdmi-hal-i2c-dev)"]
 
     dt --> hal
-    hal --> scdc
-    hal --> frl
+    hal --> culvert
+    hal --> plumbob
     hal --> be
 ```
 

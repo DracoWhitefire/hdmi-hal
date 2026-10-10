@@ -208,9 +208,9 @@ The rules that make this work cleanly:
   `T: hdmi_hal::ScdcTransport`. The HAL layer imposes no executor dependency on sync
   consumers.
 
-`hdmi-hal-async` is out of scope for the current implementation phase. The trait
-surfaces defined here are designed so that adding the async companion later requires
-no changes to this crate.
+The async companion is the separate crate `hdmi-hal-async`. It mirrors these traits with
+`async fn` methods and reuses this crate's data types, so adding it required no changes
+here.
 
 ---
 
@@ -231,7 +231,7 @@ struct SimulatedScdc {
 impl ScdcTransport for SimulatedScdc {
     type Error = Infallible;
 
-    fn read(&mut self, reg: u8) -> Result<u8, Infallible> {
+    fn read(&self, reg: u8) -> Result<u8, Infallible> {
         Ok(self.registers[reg as usize])
     }
 
