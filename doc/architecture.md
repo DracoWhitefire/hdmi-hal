@@ -17,7 +17,8 @@ are only ever used by a single library stay in that library.
 `hdmi-hal` covers:
 
 - `ScdcTransport` — raw register read/write access to the SCDC register map over DDC/I²C
-- `HdmiPhy` — PHY lane configuration: FRL rate, equalization, scrambling
+- `HdmiPhy` — transmitter PHY control: FRL rate, link training patterns, FRL output
+  mode, scrambling and equalization
 - CEC line access trait — when CEC is implemented
 
 The following are explicitly out of scope:
@@ -75,8 +76,11 @@ the SCDC register map does so through this trait.
 pub trait ScdcTransport {
     type Error;
 
-    fn read(&mut self, reg: u8) -> Result<u8, Self::Error>;
+    fn read(&self, reg: u8) -> Result<u8, Self::Error>;
     fn write(&mut self, reg: u8, value: u8) -> Result<(), Self::Error>;
+
+    /// Default: one `read` per byte. Override for a single burst transaction.
+    fn read_block(&self, reg: u8, buf: &mut [u8]) -> Result<(), Self::Error> { ... }
 }
 ```
 
@@ -89,17 +93,20 @@ move.
 The associated `Error` type is bounded by the implementing crate. A hardware backend
 exposes its own I²C error type; a simulator may use `Infallible`.
 
-**Block read/write.** Some SCDC operations benefit from burst reads (e.g. reading all
-CED registers in a single transaction). A default-provided multi-byte variant may be
-added here if it surfaces as a consistent need across consumers; for now, single-register
-access is the defined contract.
+**Block reads.** `read_block` reads consecutive registers into a buffer. Its default
+implementation is built on `read`, so existing transports keep working unchanged;
+transports that can burst-read override it so that related registers, such as the
+status flags the link training crate polls or the CED counters, are read in one
+transaction. A read past `0xFF` wraps to `0x00` in the default implementation. There is
+no block write: no consumer needs one yet.
 
 ---
 
 ### `HdmiPhy`
 
-Abstracts the register sequences required to configure an HDMI 2.1 PHY: lane mapping,
-pre-emphasis, equalization, scrambling, and FRL rate selection.
+Covers an HDMI 2.1 transmitter PHY's link-level FRL and TMDS behaviour (FRL rate
+selection, link training patterns, FRL output mode and scrambling) as well as analog lane
+configuration (lane mapping, pre-emphasis and equalization).
 
 ```rust
 pub trait HdmiPhy {
@@ -108,8 +115,12 @@ pub trait HdmiPhy {
     /// Select the FRL rate (or TMDS). Triggers the required lane reconfiguration sequence.
     fn set_frl_rate(&mut self, rate: HdmiForumFrl) -> Result<(), Self::Error>;
 
-    /// Drive a Link Training Pattern on the PHY lanes.
-    fn send_ltp(&mut self, pattern: LtpPattern) -> Result<(), Self::Error>;
+    /// Drive the given link training patterns on the physical lanes, one per lane.
+    fn send_ltp(&mut self, patterns: LanePatterns) -> Result<(), Self::Error>;
+
+    /// Select what the transmitter sends on the FRL lanes: gap characters only, or video,
+    /// data islands and control periods.
+    fn set_frl_output(&mut self, output: FrlOutput) -> Result<(), Self::Error>;
 
     /// Adjust equalization parameters after link training feedback.
     fn adjust_equalization(&mut self, params: EqParams) -> Result<(), Self::Error>;
@@ -119,15 +130,34 @@ pub trait HdmiPhy {
 }
 ```
 
-`HdmiForumFrl` is from `display-types`. `LtpPattern` is a newtype defined in this crate
-wrapping the raw pattern index from the SCDC Status_Flags register (1–4 for LFSR0–LFSR3,
-0 for the exit condition). This keeps `hdmi-hal` free of any dependency on `plumbob`;
-the link training crate converts from its own `LtpReq` type to `LtpPattern` before
-calling the PHY. `EqParams` carries per-lane equalization data derived from CED feedback during the FRL
+`HdmiForumFrl` is from `display-types`. `LtpPattern` is a non-exhaustive enum defined in
+this crate naming the patterns a PHY can drive, with the SCDC values as discriminants
+(1 all ones, 2 all zeros, 3 Nyquist clock, 4 DDE compliance, 5–8 LFSR 0–3). The PHY
+has to know what each pattern is in order to generate it, so the meaning of each value
+is part of the contract between the link training crate and the PHY, and is named here
+rather than left to each backend. The link training crate keeps its own `LtpReq` type
+for the sink's raw requests, which include values that are not patterns (no pattern,
+TxFFE and rate change requests), and maps the pattern requests to `LtpPattern` before
+calling the PHY. Defining `LtpPattern` here keeps `hdmi-hal` free of any dependency on
+`plumbob`. `send_ltp` takes `LanePatterns`, the full per-lane set: `lane0` to `lane3`,
+each an `Option<LtpPattern>` where `None` means no training pattern on that lane (and
+`lane3` is `None` in 3-lane FRL mode). The PHY applies the set as given; the link training
+crate tracks which pattern each lane carries, since a sink's request can leave a lane's
+previous pattern in place. `EqParams` carries per-lane equalization data derived from CED feedback during the FRL
 training loop: `lane0`, `lane1`, `lane2` (`LaneEqParams`) and `lane3`
-(`Option<LaneEqParams>`, `None` in 3-lane FRL mode). The fields of `LaneEqParams` will
-be defined as the link training state machine is implemented and the actual per-lane
-equalization knobs are known.
+(`Option<LaneEqParams>`, `None` in 3-lane FRL mode). `LaneEqParams` carries the lane's
+TxFFE level as a `TxFfeLevel`, a newtype that only holds 0–7, so a PHY backend never sees
+an out-of-range level. The lower maximum that applies at some FRL rates is advertised to
+the sink by the link training crate, which keeps each lane's level within it.
+`LaneEqParams` stays `#[non_exhaustive]` so further per-lane settings can be added.
+
+`set_frl_output` takes `FrlOutput`: `GapOnly` (gap characters only, during link training
+and while waiting for the sink to start FRL) or `Active` (video, data islands and control
+periods, set once training has succeeded). It is part of `HdmiPhy` because both the link
+training crate and the integration layer drive it, and because `HdmiPhy` already carries
+link-level operations such as `set_scrambling` and `send_ltp`. `FrlOutput` is
+deliberately not `#[non_exhaustive]`: a PHY has to implement every output mode, so a
+new mode would be a breaking change.
 
 Like `ScdcTransport`, implementations are entirely in platform crates. The trait surface
 is driven by what the link training and mode-setting layers need to call; vendor-specific
@@ -150,6 +180,9 @@ All traits in this crate must be usable in bare `no_std` environments. This mean
 - No trait method may require allocation.
 - `Error` associated types may be `Infallible` in no-alloc implementations.
 - No default implementations may bring in `std` dependencies.
+- Dependencies are declared with `default-features = false`, so they cannot enable `std`
+  for crates further up the stack. CI builds the crate for `thumbv7em-none-eabi`, a
+  target without `std`.
 
 ---
 
@@ -175,9 +208,9 @@ The rules that make this work cleanly:
   `T: hdmi_hal::ScdcTransport`. The HAL layer imposes no executor dependency on sync
   consumers.
 
-`hdmi-hal-async` is out of scope for the current implementation phase. The trait
-surfaces defined here are designed so that adding the async companion later requires
-no changes to this crate.
+The async companion is the separate crate `hdmi-hal-async`. It mirrors these traits with
+`async fn` methods and reuses this crate's data types, so adding it required no changes
+here.
 
 ---
 
@@ -198,7 +231,7 @@ struct SimulatedScdc {
 impl ScdcTransport for SimulatedScdc {
     type Error = Infallible;
 
-    fn read(&mut self, reg: u8) -> Result<u8, Infallible> {
+    fn read(&self, reg: u8) -> Result<u8, Infallible> {
         Ok(self.registers[reg as usize])
     }
 

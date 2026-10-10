@@ -7,15 +7,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+
+- **`LtpPattern` is now a `#[non_exhaustive]` enum with the HDMI 2.1 pattern values.**
+  The previous documentation mapped 1–4 to LFSR 0–3, which was wrong: the values are
+  1 = all ones, 2 = all zeros, 3 = Nyquist clock, 4 = DDE compliance and 5–8 = LFSR 0–3.
+  `LtpPattern::new(u8)` is removed; use the variants (`LtpPattern::Lfsr0` etc.).
+  `LtpPattern::value()` remains and is now `const`. The enum is `#[repr(u8)]`, with each
+  variant's discriminant its pattern value.
+- **`HdmiPhy::send_ltp` takes the full per-lane pattern set**: the signature is now
+  `send_ltp(patterns: LanePatterns)`. HDMI 2.1 sinks request a pattern per lane, so a
+  single pattern for all lanes could not express training. `None` on a lane means no
+  training pattern; `None` on every lane stops the training patterns.
+- **`HdmiPhy::set_frl_output` is a new required method**: existing `HdmiPhy`
+  implementations must add `set_frl_output(output: FrlOutput) -> Result<(), Self::Error>`.
+  It selects gap-only output during link training and active output once training has
+  succeeded.
+
+### Added
+
+- `HdmiForumFrl` re-exported at the crate root, so `HdmiPhy` implementations name the
+  same type hdmi-hal does without depending on `display-types` themselves.
+- `LtpPattern`, `LanePatterns`, `FrlOutput`, `TxFfeLevel`, `LaneEqParams` and `EqParams`
+  derive `Hash`.
+- `LanePatterns` — the link training pattern for each lane (`lane0` to `lane3`, each an
+  `Option<LtpPattern>`; `lane3` is `None` in 3-lane FRL mode). Derives `Default` (no
+  pattern on any lane), `Debug`, `Clone`, `Copy`, `PartialEq` and `Eq`.
+- `FrlOutput` — what the transmitter sends on the FRL lanes: `GapOnly` (gap characters
+  only) or `Active` (video, data islands and control periods). Derives `Debug`, `Clone`,
+  `Copy`, `PartialEq` and `Eq`.
+- `TxFfeLevel` — a TxFFE level index, 0–7. `TxFfeLevel::new(u8)` returns `None` above 7;
+  `TxFfeLevel::MAX` is level 7 and the default is level 0. Read with `value()`. Derives
+  `Debug`, `Clone`, `Copy`, `Default`, `PartialEq`, `Eq`, `PartialOrd` and `Ord`, so levels
+  compare in order.
+- `LaneEqParams::tx_ffe_level` — the lane's TxFFE level, applied through
+  `HdmiPhy::adjust_equalization`. Defaults to level 0.
+- `EqParams` and `LaneEqParams` now derive `PartialEq` and `Eq`.
+- `ScdcTransport::read_block(reg, buf)` — reads consecutive registers into `buf`. The
+  default implementation calls `read` once per byte, so existing transports need no
+  changes; transports that can burst-read should override it.
+
+### Changed
+
+- `HdmiPhy`'s documentation now describes it as covering the transmitter's link-level
+  FRL and TMDS behaviour as well as analog lane configuration.
+- `HdmiPhy::set_frl_rate`'s documentation says it returns once the PHY transmits at the
+  rate, including any bring-up its hardware needs (such as a clock pattern held until its
+  PLL locks).
+
+### Fixed
+
+- **hdmi-hal now builds for `no_std` targets.** It depended on `display-types` with its
+  default features, which include `std`, so `std` was enabled for display-types in every
+  crate depending on hdmi-hal, whatever that crate asked for, and the build failed on
+  targets without `std` (such as `thumbv7em-none-eabi`). display-types is now a
+  dependency with `default-features = false`.
+
 ### Internal
 
+- **CI builds for a `no_std` target** — the `Build (no_std)` step now builds for
+  `thumbv7em-none-eabi`. It previously built for the host, where `std` is always
+  available, so it could not catch a dependency that requires `std`.
+  The publish workflow runs the same build steps.
 - **Publish dispatches restricted to release tags** — `publish.yml` already accepted
   `workflow_dispatch` (used by `release-tag`), but a dispatch against a branch such as
   `main` would have published the version on that branch and created a GitHub release
   named after the branch. Dispatches against a non-tag ref are now skipped, so they cannot
   publish or create a release.
 
-## [0.4.1] - 2026-05-20
+## [0.4.1] - 2026-05-20 [YANKED]
+
+Yanked: moving to display-types 0.4 changed the `HdmiForumFrl` type in `HdmiPhy`'s
+signature, a breaking change released as a patch. Crates that depend on hdmi-hal 0.4 and
+display-types 0.3, such as plumbob 0.1.3, failed to build against it. The change is
+released again in 0.5.
 
 ### Changed
 

@@ -21,6 +21,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+          targets: thumbv7em-none-eabi
 
       - name: Cache
         uses: actions/cache@v4
@@ -46,7 +47,7 @@ jobs:
         run: cargo test --locked
 
       - name: Build (no_std)
-        run: cargo build --locked --no-default-features
+        run: cargo build --locked --no-default-features --target thumbv7em-none-eabi
 
       - name: Build simulate example
         run: cargo build --manifest-path examples/simulate/Cargo.toml

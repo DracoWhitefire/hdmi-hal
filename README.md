@@ -12,7 +12,8 @@ Hardware abstraction traits for the HDMI stack.
 `hdmi-hal` defines the behavioral contracts between protocol logic and hardware. It is a
 traits-only crate: no implementations live here. Every trait expresses an I/O boundary
 that multiple crates in the stack need to cross in a compatible way — raw SCDC register
-access over DDC/I²C, and PHY lane configuration for HDMI 2.1.
+access over DDC/I²C, and HDMI 2.1 transmitter PHY control (link-level FRL and TMDS
+behaviour and analog lane configuration).
 
 ## Usage
 ```sh
@@ -29,7 +30,7 @@ struct MyI2cBackend { /* ... */ }
 impl ScdcTransport for MyI2cBackend {
     type Error = MyError;
 
-    fn read(&mut self, reg: u8) -> Result<u8, MyError> { /* ... */ }
+    fn read(&self, reg: u8) -> Result<u8, MyError> { /* ... */ }
     fn write(&mut self, reg: u8, value: u8) -> Result<(), MyError> { /* ... */ }
 }
 ```
@@ -57,13 +58,13 @@ dependency on the rest of the stack; protocol crates depend on it, not the rever
 flowchart LR
     dt["display-types"]
     hal["hdmi-hal"]
-    scdc["scdc"]
-    frl["frl-training"]
-    be["platform backends"]
+    culvert["culvert"]
+    plumbob["plumbob"]
+    be["platform backends (e.g. hdmi-hal-i2c-dev)"]
 
     dt --> hal
-    hal --> scdc
-    hal --> frl
+    hal --> culvert
+    hal --> plumbob
     hal --> be
 ```
 
