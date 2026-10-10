@@ -7,7 +7,7 @@ use display_types::cea861::hdmi_forum::HdmiForumFrl;
 /// LTP fields. Request values that are not patterns (0 for no pattern, and the TxFFE
 /// and rate change requests) are handled by the link training layer and have no variant.
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum LtpPattern {
     /// All ones.
@@ -41,7 +41,7 @@ impl LtpPattern {
 /// layer tracks which pattern each lane carries. `None` means no training pattern on
 /// that lane; `None` on every lane stops the training patterns. `lane3` is `None` in
 /// 3-lane FRL mode.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct LanePatterns {
     /// Pattern for lane 0.
     pub lane0: Option<LtpPattern>,
@@ -56,7 +56,7 @@ pub struct LanePatterns {
 /// What the transmitter sends on the FRL lanes once training patterns are stopped.
 ///
 /// Passed to [`HdmiPhy::set_frl_output`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FrlOutput {
     /// Gap characters only, with no video, data islands or control periods. Used during
     /// link training and while waiting for the sink to start FRL.
@@ -71,7 +71,7 @@ pub enum FrlOutput {
 /// The level a lane's transmitter applies during FRL training. The range is checked on
 /// construction; the lower per-rate limit the source advertises to the sink is the link
 /// training layer's concern.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TxFfeLevel(u8);
 
 impl TxFfeLevel {
@@ -95,7 +95,7 @@ impl TxFfeLevel {
 
 /// Per-lane equalization parameters carried by [`EqParams`].
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct LaneEqParams {
     /// TxFFE level for the lane. Defaults to 0.
     pub tx_ffe_level: TxFfeLevel,
@@ -106,7 +106,7 @@ pub struct LaneEqParams {
 /// Carries per-lane adjustment data derived from character error detection (CED)
 /// feedback during the FRL training loop. `lane3` is `None` in 3-lane FRL mode.
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct EqParams {
     /// Equalization parameters for lane 0.
     pub lane0: LaneEqParams,
@@ -338,6 +338,24 @@ mod tests {
         phy.set_frl_output(FrlOutput::GapOnly).unwrap();
         phy.set_frl_output(FrlOutput::Active).unwrap();
         assert_eq!(phy.frl_output, Some(FrlOutput::Active));
+    }
+
+    #[test]
+    fn value_types_can_be_hashed() {
+        extern crate std;
+        use std::collections::HashSet;
+        let patterns: HashSet<LanePatterns> = [LanePatterns::default(), LanePatterns::default()]
+            .into_iter()
+            .collect();
+        assert_eq!(patterns.len(), 1);
+        let outputs: HashSet<FrlOutput> = [FrlOutput::GapOnly, FrlOutput::Active].into();
+        assert_eq!(outputs.len(), 2);
+        let levels: HashSet<TxFfeLevel> = [TxFfeLevel::MAX, TxFfeLevel::default()].into();
+        assert_eq!(levels.len(), 2);
+        let eq: HashSet<EqParams> = [EqParams::new(), EqParams::new()].into();
+        assert_eq!(eq.len(), 1);
+        let ltp: HashSet<LtpPattern> = [LtpPattern::Lfsr0, LtpPattern::Lfsr0].into();
+        assert_eq!(ltp.len(), 1);
     }
 
     #[test]

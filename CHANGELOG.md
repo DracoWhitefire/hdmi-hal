@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `HdmiForumFrl` re-exported at the crate root, so `HdmiPhy` implementations name the
+  same type hdmi-hal does without depending on `display-types` themselves.
+- `LtpPattern`, `LanePatterns`, `FrlOutput`, `TxFfeLevel`, `LaneEqParams` and `EqParams`
+  derive `Hash`.
 - `LanePatterns` — the link training pattern for each lane (`lane0` to `lane3`, each an
   `Option<LtpPattern>`; `lane3` is `None` in 3-lane FRL mode). Derives `Default` (no
   pattern on any lane), `Debug`, `Clone`, `Copy`, `PartialEq` and `Eq`.
