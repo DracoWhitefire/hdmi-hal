@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking changes
 
+- **`display-types` updated to 0.4** (0.4.0 used 0.3): the `HdmiForumFrl` in
+  `HdmiPhy::set_frl_rate` is display-types 0.4's type, so PHY implementations and their
+  callers must use display-types 0.4 (or the `HdmiForumFrl` re-exported here). This change
+  first shipped in 0.4.1, which was yanked for releasing it as a patch.
 - **`LtpPattern` is now a `#[non_exhaustive]` enum with the HDMI 2.1 pattern values.**
   The previous documentation mapped 1–4 to LFSR 0–3, which was wrong: the values are
   1 = all ones, 2 = all zeros, 3 = Nyquist clock, 4 = DDE compliance and 5–8 = LFSR 0–3.
