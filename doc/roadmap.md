@@ -29,30 +29,29 @@ Trait surfaces covering what the SCDC and link training layers need to function:
 
 ## Planned
 
-### Block read/write for `ScdcTransport`
+### Further PHY configuration
 
-Some SCDC operations benefit from burst reads — reading all CED registers in a single
-I²C transaction rather than one byte at a time. A default-provided multi-byte variant
-will be added once the SCDC or link training layer surfaces a consistent need for it.
+`HdmiPhy` covers what FRL link training needs. The mode-setting layer and platform
+bring-up will also need:
 
-### Full `LaneEqParams` fields
+- **Lane mapping** — lane order and polarity. Fixed by the board, so it may belong in a
+  backend's configuration at construction rather than in the trait.
+- **TMDS pre-emphasis and swing** — FRL's transmitter equalization is already covered by
+  each lane's TxFFE level in `EqParams`; TMDS has no equivalent yet.
+- **Spread-spectrum clocking.**
+- **Power states** — powering the PHY down and up, for example across hotplug.
 
-`LaneEqParams` ships with no fields in 0.3.0. Its fields will be defined once the link
-training state machine is implemented and the actual per-lane equalization knobs are
-known. `#[non_exhaustive]` is retained permanently on both `EqParams` and `LaneEqParams`:
-it prevents external crates from using struct literal syntax, ensuring that new fields
-can always be added without a breaking change.
+Each is decided when the layer that needs it is built. As trait methods with default
+implementations they are not breaking changes; as required methods they would be.
+
+Related: the compliance tester can restrict TxFFE to pre-shoot only, de-emphasis only or
+no FFE (`Source_Test_Configuration`). If the link training crate honours these
+restrictions rather than leaving them to the caller (an open question in plumbob), the PHY
+may need them as further per-lane settings in `LaneEqParams`, which is `#[non_exhaustive]`
+so they can be added without a breaking change.
 
 ### CEC line trait
 
 A single-wire CEC bus access primitive: bit-bang read, write, and collision detection.
 To be defined when CEC implementation begins. The bar for inclusion here is that both
 the CEC protocol crate and at least one platform backend need to share the contract.
-
-### `hdmi-hal-async`
-
-Async companion crate mirroring each trait in `hdmi-hal` with `async fn` methods and
-identical signatures otherwise, following the same split as `embedded-hal` /
-`embedded-hal-async`. Shares data types (`EqParams` and any future structs) with
-`hdmi-hal` rather than duplicating them. To be implemented when an async consumer
-(Embassy platform backend, async link training) is being built.

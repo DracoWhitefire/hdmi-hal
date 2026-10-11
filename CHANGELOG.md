@@ -7,7 +7,130 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.1] - 2026-05-20
+## [0.5.0] - 2026-10-11
+
+### Breaking changes
+
+- **`display-types` updated to 0.4** (0.4.0 used 0.3): the `HdmiForumFrl` in
+  `HdmiPhy::set_frl_rate` is display-types 0.4's type, so PHY implementations and their
+  callers must use display-types 0.4 (or the `HdmiForumFrl` re-exported here). This change
+  first shipped in 0.4.1, which was yanked for releasing it as a patch.
+- **`LtpPattern` is now a `#[non_exhaustive]` enum with the HDMI 2.1 pattern values.**
+  The previous documentation mapped 1–4 to LFSR 0–3, which was wrong: the values are
+  1 = all ones, 2 = all zeros, 3 = Nyquist clock, 4 = DDE compliance and 5–8 = LFSR 0–3.
+  `LtpPattern::new(u8)` is removed; use the variants (`LtpPattern::Lfsr0` etc.).
+  `LtpPattern::value()` remains and is now `const`. The enum is `#[repr(u8)]`, with each
+  variant's discriminant its pattern value.
+- **`HdmiPhy::send_ltp` takes the full per-lane pattern set**: the signature is now
+  `send_ltp(patterns: LanePatterns)`. HDMI 2.1 sinks request a pattern per lane, so a
+  single pattern for all lanes could not express training. `None` on a lane means no
+  training pattern; `None` on every lane stops the training patterns.
+- **`HdmiPhy::set_frl_output` is a new required method**: existing `HdmiPhy`
+  implementations must add `set_frl_output(output: FrlOutput) -> Result<(), Self::Error>`.
+  It selects gap-only output during link training and active output once training has
+  succeeded.
+
+### Added
+
+- `HdmiForumFrl` re-exported at the crate root, so `HdmiPhy` implementations name the
+  same type hdmi-hal does without depending on `display-types` themselves.
+- `LtpPattern`, `LanePatterns`, `FrlOutput`, `TxFfeLevel`, `LaneEqParams` and `EqParams`
+  derive `Hash`.
+- `LanePatterns` — the link training pattern for each lane (`lane0` to `lane3`, each an
+  `Option<LtpPattern>`; `lane3` is `None` in 3-lane FRL mode). Derives `Default` (no
+  pattern on any lane), `Debug`, `Clone`, `Copy`, `PartialEq` and `Eq`.
+- `FrlOutput` — what the transmitter sends on the FRL lanes: `GapOnly` (gap characters
+  only) or `Active` (video, data islands and control periods). Derives `Debug`, `Clone`,
+  `Copy`, `PartialEq` and `Eq`. Deliberately exhaustive: a PHY has to implement both
+  modes, so a mode added by a later HDMI version would be a breaking change.
+- `TxFfeLevel` — a TxFFE level index, 0–7. `TxFfeLevel::new(u8)` returns `None` above 7;
+  `TxFfeLevel::MAX` is level 7 and the default is level 0. Read with `value()`. Derives
+  `Debug`, `Clone`, `Copy`, `Default`, `PartialEq`, `Eq`, `PartialOrd` and `Ord`, so levels
+  compare in order.
+- `LaneEqParams::tx_ffe_level` — the lane's TxFFE level, applied through
+  `HdmiPhy::adjust_equalization`. Defaults to level 0.
+- `EqParams` and `LaneEqParams` now derive `PartialEq` and `Eq`.
+- `ScdcTransport::read_block(reg, buf)` — reads consecutive registers into `buf`. The
+  default implementation calls `read` once per byte, so existing transports need no
+  changes; transports that can burst-read should override it.
+
+### Changed
+
+- `HdmiPhy`'s documentation now describes what it covers: what FRL link training needs
+  from the transmitter (rate, training patterns, output mode, scrambling and each lane's
+  TxFFE level). Further PHY configuration (lane mapping, TMDS pre-emphasis and swing,
+  spread-spectrum clocking, power states) is listed as planned in the roadmap.
+- `HdmiPhy::set_frl_rate`'s documentation says it returns once the PHY transmits at the
+  rate, including any bring-up its hardware needs (such as a clock pattern held until its
+  PLL locks).
+
+### Fixed
+
+- **hdmi-hal now builds for `no_std` targets.** It depended on `display-types` with its
+  default features, which include `std`, so `std` was enabled for display-types in every
+  crate depending on hdmi-hal, whatever that crate asked for, and the build failed on
+  targets without `std` (such as `thumbv7em-none-eabi`). display-types is now a
+  dependency with `default-features = false`.
+
+### Internal
+
+- **CI builds for a `no_std` target** — the `Build (no_std)` step now builds for
+  `thumbv7em-none-eabi`. It previously built for the host, where `std` is always
+  available, so it could not catch a dependency that requires `std`.
+  The publish workflow runs the same build steps.
+- **Publish dispatches restricted to release tags** — `publish.yml` already accepted
+  `workflow_dispatch` (used by `release-tag`), but a dispatch against a branch such as
+  `main` would have published the version on that branch and created a GitHub release
+  named after the branch. Dispatches against a non-tag ref are now skipped, so they cannot
+  publish or create a release.
+- **Publishing uses crates.io trusted publishing** — `publish.yml` obtains a short-lived
+  token through OIDC (`rust-lang/crates-io-auth-action`, revoked at the end of the job, and
+  short-lived regardless) instead of the long-lived `CARGO_REGISTRY_TOKEN` secret. The
+  upload job runs in the `release` environment, which only `v*` tags can deploy to and
+  which requires a maintainer's approval. Quality gates moved to a separate `verify` job,
+  so no dependency build scripts run and no cache is restored where publishing credentials
+  exist. The attested `.crate` is kept as a separate copy; after upload the job fails if
+  crates.io's checksum differs from it, and that same copy is attached to the GitHub
+  release. Re-running a partially failed publish reuses an existing GitHub release.
+- **Release summary before approval** — `publish.yml` gains a `summary` job that shows the
+  crate, version and commit, changes since the previous published release (ignoring
+  pre-release or malformed tags, and flagging a baseline that is not on crates.io), changes
+  to workflow, toolchain and build configuration, manifest changes, the changelog section,
+  and the `.crate` sha256 with a command to reproduce it, on the run page while the publish
+  job waits for approval. The publish job refuses to attest a package whose sha256 differs
+  from the reviewed one.
+- **`release-tag` no longer tags after a failed promotion** — `release-tag` now promotes
+  `develop` to `main` through a `release-promote/v*` branch and PR. A failed merge of the promote PR used to go unnoticed, after which the previous `main`
+  commit was tagged with the new version. The step now fails, tagging requires `main` to
+  hold exactly the promoted tree, and `publish.yml` refuses tags that do not match the
+  `Cargo.toml` version.
+- **Release workflows only run from `develop`** — `release-prep` and `release-tag` fail when
+  started from another branch, so an outdated copy of the workflow is not run against
+  `develop` by mistake.
+- **`release-prep` no longer edits the README** — its "Update README.md dependency pin" step
+  matched nothing since the README switched to `cargo add hdmi-hal`, and was removed.
+- **No CI run on promotion PRs** — CI no longer runs on pull requests into `main`. The only
+  ones are `release-tag`'s `release-promote/*` PRs, whose content already passed CI on
+  `develop`; opened by `github-actions[bot]`, their runs were held for approval and listed
+  as `action_required` or failed.
+- **Supply-chain hardening for CI** — every third-party action is pinned to a commit SHA
+  of a release tag, with `dependabot.yml` keeping the pins (and `Cargo.lock`) current. The
+  Rust toolchain itself still follows `stable`. `cargo-semver-checks` is installed as a
+  checksum-verified prebuilt binary (the version listed by the pinned `install-action`)
+  instead of being restored from a cached `~/.cargo/bin`. The security audit also runs
+  weekly.
+- **README documents release provenance** — a badge shows whether crates.io requires trusted
+  publishing for this crate, and "Verifying releases" now states which versions carry SLSA
+  provenance (from 0.4.0, not every release as it previously claimed), which are uploaded
+  through trusted publishing (after 0.4.1) or were uploaded with an API token (up to
+  0.4.1), and how to look up a version's publishing details on crates.io.
+
+## [0.4.1] - 2026-05-20 [YANKED]
+
+Yanked: moving to display-types 0.4 changed the `HdmiForumFrl` type in `HdmiPhy`'s
+signature, a breaking change released as a patch. Crates that depend on hdmi-hal 0.4 and
+display-types 0.3, such as plumbob 0.1.3, failed to build against it. The change is
+released again in 0.5.
 
 ### Changed
 
