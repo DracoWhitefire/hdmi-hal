@@ -8,7 +8,7 @@
 
 use core::convert::Infallible;
 use display_types::cea861::hdmi_forum::HdmiForumFrl;
-use hdmi_hal::phy::{EqParams, HdmiPhy, LtpPattern};
+use hdmi_hal::phy::{EqParams, FrlOutput, HdmiPhy, LanePatterns, LtpPattern, TxFfeLevel};
 use hdmi_hal::scdc::ScdcTransport;
 
 // --- Simulated backends ----------------------------------------------------------
@@ -51,13 +51,18 @@ impl HdmiPhy for SimulatedPhy {
         Ok(())
     }
 
-    fn send_ltp(&mut self, pattern: LtpPattern) -> Result<(), Infallible> {
-        println!("PHY: send_ltp({})", pattern.value());
+    fn send_ltp(&mut self, patterns: LanePatterns) -> Result<(), Infallible> {
+        println!("PHY: send_ltp({patterns:?})");
         Ok(())
     }
 
-    fn adjust_equalization(&mut self, _params: EqParams) -> Result<(), Infallible> {
-        println!("PHY: adjust_equalization(..)");
+    fn set_frl_output(&mut self, output: FrlOutput) -> Result<(), Infallible> {
+        println!("PHY: set_frl_output({output:?})");
+        Ok(())
+    }
+
+    fn adjust_equalization(&mut self, params: EqParams) -> Result<(), Infallible> {
+        println!("PHY: adjust_equalization({params:?})");
         Ok(())
     }
 
@@ -80,6 +85,9 @@ where
     transport.write(0x20, 0x01).unwrap();
     let val = transport.read(0x20).unwrap();
     println!("SCDC: wrote 0x01 to reg 0x20, read back 0x{val:02x}");
+    let mut block = [0u8; 2];
+    transport.read_block(0x20, &mut block).unwrap();
+    println!("SCDC: read_block from reg 0x20: {block:02x?}");
 }
 
 fn exercise_phy<P>(phy: &mut P)
@@ -88,9 +96,20 @@ where
     P::Error: core::fmt::Debug,
 {
     phy.set_frl_rate(HdmiForumFrl::Rate6Gbps4Lanes).unwrap();
-    phy.send_ltp(LtpPattern::new(1)).unwrap(); // LFSR0
-    phy.adjust_equalization(EqParams::new()).unwrap();
+    phy.send_ltp(LanePatterns {
+        lane0: Some(LtpPattern::Lfsr0),
+        lane1: Some(LtpPattern::Lfsr1),
+        lane2: Some(LtpPattern::Lfsr2),
+        lane3: Some(LtpPattern::Lfsr3),
+    })
+    .unwrap();
+    let mut eq = EqParams::new();
+    eq.lane0.tx_ffe_level = TxFfeLevel::new(1).unwrap();
+    phy.adjust_equalization(eq).unwrap();
+    phy.send_ltp(LanePatterns::default()).unwrap();
+    phy.set_frl_output(FrlOutput::GapOnly).unwrap();
     phy.set_scrambling(true).unwrap();
+    phy.set_frl_output(FrlOutput::Active).unwrap();
 }
 
 // --------------------------------------------------------------------------------
