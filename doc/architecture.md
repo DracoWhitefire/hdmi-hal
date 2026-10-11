@@ -155,9 +155,15 @@ the sink by the link training crate, which keeps each lane's level within it.
 and while waiting for the sink to start FRL) or `Active` (video, data islands and control
 periods, set once training has succeeded). It is part of `HdmiPhy` because both the link
 training crate and the integration layer drive it, and because `HdmiPhy` already carries
-link-level operations such as `set_scrambling` and `send_ltp`. `FrlOutput` is
-deliberately not `#[non_exhaustive]`: a PHY has to implement every output mode, so a
-new mode would be a breaking change.
+link-level operations such as `set_scrambling` and `send_ltp`.
+
+`FrlOutput` is deliberately not `#[non_exhaustive]`, unlike `LtpPattern`. The patterns
+are a list that later HDMI versions can extend, and a PHY that cannot generate a new one
+can report an error that ends the training attempt. The two output modes are the two
+states of an FRL link, training and carrying content. A PHY has to implement both, and
+has no sensible behaviour for a mode it does not know: a wildcard arm could only fail.
+If a later HDMI version adds a mode, it should reach every implementation as a compile
+error in a breaking release, not as a runtime error from a PHY that was never updated.
 
 Like `ScdcTransport`, implementations are entirely in platform crates. The trait surface
 is driven by what the link training and mode-setting layers need to call; vendor-specific

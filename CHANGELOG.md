@@ -39,7 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pattern on any lane), `Debug`, `Clone`, `Copy`, `PartialEq` and `Eq`.
 - `FrlOutput` — what the transmitter sends on the FRL lanes: `GapOnly` (gap characters
   only) or `Active` (video, data islands and control periods). Derives `Debug`, `Clone`,
-  `Copy`, `PartialEq` and `Eq`.
+  `Copy`, `PartialEq` and `Eq`. Deliberately exhaustive: a PHY has to implement both
+  modes, so a mode added by a later HDMI version would be a breaking change.
 - `TxFfeLevel` — a TxFFE level index, 0–7. `TxFfeLevel::new(u8)` returns `None` above 7;
   `TxFfeLevel::MAX` is level 7 and the default is level 0. Read with `value()`. Derives
   `Debug`, `Clone`, `Copy`, `Default`, `PartialEq`, `Eq`, `PartialOrd` and `Ord`, so levels

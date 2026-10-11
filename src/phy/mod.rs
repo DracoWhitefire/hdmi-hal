@@ -56,6 +56,13 @@ pub struct LanePatterns {
 /// What the transmitter sends on the FRL lanes once training patterns are stopped.
 ///
 /// Passed to [`HdmiPhy::set_frl_output`].
+///
+/// Deliberately exhaustive, unlike [`LtpPattern`]. The two variants are the two states of
+/// an FRL link, training and carrying content, not a list that grows with each HDMI
+/// version. A PHY has to implement both, and has no sensible behaviour for a mode it does
+/// not know: a wildcard arm could only fail. If a later HDMI version adds a mode, it should
+/// reach every implementation as a compile error in a breaking release, not as a runtime
+/// error from a PHY that was never updated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FrlOutput {
     /// Gap characters only, with no video, data islands or control periods. Used during
