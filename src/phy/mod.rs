@@ -56,6 +56,13 @@ pub struct LanePatterns {
 /// What the transmitter sends on the FRL lanes once training patterns are stopped.
 ///
 /// Passed to [`HdmiPhy::set_frl_output`].
+///
+/// Deliberately exhaustive, unlike [`LtpPattern`]. The two variants are the two states of
+/// an FRL link, training and carrying content, not a list that grows with each HDMI
+/// version. A PHY has to implement both, and has no sensible behaviour for a mode it does
+/// not know: a wildcard arm could only fail. If a later HDMI version adds a mode, it should
+/// reach every implementation as a compile error in a breaking release, not as a runtime
+/// error from a PHY that was never updated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FrlOutput {
     /// Gap characters only, with no video, data islands or control periods. Used during
@@ -125,12 +132,15 @@ impl EqParams {
     }
 }
 
-/// Link-level and analog lane control for an HDMI 2.1 transmitter PHY.
+/// Link-level control of an HDMI 2.1 transmitter PHY.
 ///
-/// Covers the transmitter's link-level FRL and TMDS behaviour (FRL rate selection, link
-/// training patterns, FRL output mode and scrambling) as well as analog lane
-/// configuration (lane mapping, pre-emphasis and equalization). Vendor-specific register
-/// sequences are an implementation detail of each backend.
+/// Covers what FRL link training needs from the transmitter: FRL rate selection, link
+/// training patterns, FRL output mode, scrambling, and each lane's TxFFE level (FRL's
+/// transmitter equalization, a combination of pre-shoot and de-emphasis) through
+/// [`adjust_equalization`](Self::adjust_equalization). Further PHY configuration (lane
+/// mapping, TMDS pre-emphasis and swing, spread-spectrum clocking and power states) is not
+/// covered yet; it is planned for when the mode-setting layer needs it. Vendor-specific
+/// register sequences are an implementation detail of each backend.
 pub trait HdmiPhy {
     /// Error type returned by PHY operations.
     type Error;

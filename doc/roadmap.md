@@ -29,6 +29,27 @@ Trait surfaces covering what the SCDC and link training layers need to function:
 
 ## Planned
 
+### Further PHY configuration
+
+`HdmiPhy` covers what FRL link training needs. The mode-setting layer and platform
+bring-up will also need:
+
+- **Lane mapping** — lane order and polarity. Fixed by the board, so it may belong in a
+  backend's configuration at construction rather than in the trait.
+- **TMDS pre-emphasis and swing** — FRL's transmitter equalization is already covered by
+  each lane's TxFFE level in `EqParams`; TMDS has no equivalent yet.
+- **Spread-spectrum clocking.**
+- **Power states** — powering the PHY down and up, for example across hotplug.
+
+Each is decided when the layer that needs it is built. As trait methods with default
+implementations they are not breaking changes; as required methods they would be.
+
+Related: the compliance tester can restrict TxFFE to pre-shoot only, de-emphasis only or
+no FFE (`Source_Test_Configuration`). If the link training crate honours these
+restrictions rather than leaving them to the caller (an open question in plumbob), the PHY
+may need them as further per-lane settings in `LaneEqParams`, which is `#[non_exhaustive]`
+so they can be added without a breaking change.
+
 ### CEC line trait
 
 A single-wire CEC bus access primitive: bit-bang read, write, and collision detection.

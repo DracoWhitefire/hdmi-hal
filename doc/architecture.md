@@ -104,9 +104,10 @@ no block write: no consumer needs one yet.
 
 ### `HdmiPhy`
 
-Covers an HDMI 2.1 transmitter PHY's link-level FRL and TMDS behaviour (FRL rate
-selection, link training patterns, FRL output mode and scrambling) as well as analog lane
-configuration (lane mapping, pre-emphasis and equalization).
+Covers what FRL link training needs from an HDMI 2.1 transmitter PHY: FRL rate
+selection, link training patterns, FRL output mode, scrambling, and each lane's TxFFE
+level (FRL's transmitter equalization, a combination of pre-shoot and de-emphasis). Further
+PHY configuration is not covered yet; see "Not covered yet" below.
 
 ```rust
 pub trait HdmiPhy {
@@ -155,13 +156,28 @@ the sink by the link training crate, which keeps each lane's level within it.
 and while waiting for the sink to start FRL) or `Active` (video, data islands and control
 periods, set once training has succeeded). It is part of `HdmiPhy` because both the link
 training crate and the integration layer drive it, and because `HdmiPhy` already carries
-link-level operations such as `set_scrambling` and `send_ltp`. `FrlOutput` is
-deliberately not `#[non_exhaustive]`: a PHY has to implement every output mode, so a
-new mode would be a breaking change.
+link-level operations such as `set_scrambling` and `send_ltp`.
+
+`FrlOutput` is deliberately not `#[non_exhaustive]`, unlike `LtpPattern`. The patterns
+are a list that later HDMI versions can extend, and a PHY that cannot generate a new one
+can report an error that ends the training attempt. The two output modes are the two
+states of an FRL link, training and carrying content. A PHY has to implement both, and
+has no sensible behaviour for a mode it does not know: a wildcard arm could only fail.
+If a later HDMI version adds a mode, it should reach every implementation as a compile
+error in a breaking release, not as a runtime error from a PHY that was never updated.
 
 Like `ScdcTransport`, implementations are entirely in platform crates. The trait surface
 is driven by what the link training and mode-setting layers need to call; vendor-specific
 register sequences are an implementation detail.
+
+**Not covered yet.** Today's surface is what link training needs. The mode-setting layer
+and platform bring-up will also need lane mapping (lane order and polarity), TMDS
+pre-emphasis and swing, spread-spectrum clocking and power states. Following stack-ordered
+delivery (see "Design Principles"), each is decided when the layer that needs it is built,
+including whether it belongs in the trait or in a backend's own configuration: lane
+mapping, for example, is fixed by the board and may be set when the backend is
+constructed. New trait methods with default implementations are not breaking changes;
+required ones would be. `doc/roadmap.md` tracks them.
 
 ---
 
