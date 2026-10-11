@@ -6,7 +6,7 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
-/// PHY lane configuration traits and associated types.
+/// PHY control trait and associated types.
 pub mod phy;
 
 /// SCDC register transport trait.

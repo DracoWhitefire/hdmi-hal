@@ -104,9 +104,10 @@ no block write: no consumer needs one yet.
 
 ### `HdmiPhy`
 
-Covers an HDMI 2.1 transmitter PHY's link-level FRL and TMDS behaviour (FRL rate
-selection, link training patterns, FRL output mode and scrambling) as well as analog lane
-configuration (lane mapping, pre-emphasis and equalization).
+Covers what FRL link training needs from an HDMI 2.1 transmitter PHY: FRL rate
+selection, link training patterns, FRL output mode, scrambling, and each lane's TxFFE
+level (FRL's transmitter equalization, a combination of pre-shoot and de-emphasis). Further
+PHY configuration is not covered yet; see "Not covered yet" below.
 
 ```rust
 pub trait HdmiPhy {
@@ -168,6 +169,15 @@ error in a breaking release, not as a runtime error from a PHY that was never up
 Like `ScdcTransport`, implementations are entirely in platform crates. The trait surface
 is driven by what the link training and mode-setting layers need to call; vendor-specific
 register sequences are an implementation detail.
+
+**Not covered yet.** Today's surface is what link training needs. The mode-setting layer
+and platform bring-up will also need lane mapping (lane order and polarity), TMDS
+pre-emphasis and swing, spread-spectrum clocking and power states. Following stack-ordered
+delivery (see "Design Principles"), each is decided when the layer that needs it is built,
+including whether it belongs in the trait or in a backend's own configuration: lane
+mapping, for example, is fixed by the board and may be set when the backend is
+constructed. New trait methods with default implementations are not breaking changes;
+required ones would be. `doc/roadmap.md` tracks them.
 
 ---
 
