@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-12
+
+### Added
+
+- **`TxFfeRestrictions` and `EqParams::tx_ffe_restrictions`**: the three TxFFE bits a
+  compliance tester can set in `Source_Test_Configuration` (`TxFFE_Pre_Shoot_Only`,
+  `TxFFE_De_Emphasis_Only`, `TxFFE_No_FFE`), passed to the PHY for the whole link with
+  every `adjust_equalization`. They are carried as written; how to combine them is the
+  PHY's to decide and document, because the reference drivers disagree (AMD: both "only"
+  bits mean no FFE, and no FFE overrides; Rockchip: both mean full FFE, and no FFE is not
+  read). The default restricts nothing, so existing `HdmiPhy` implementations keep
+  compiling and behave as before; `EqParams` is `#[non_exhaustive]`, so the field is
+  additive.
+
+### Changed
+
+- `EqParams`'s documentation (and `doc/architecture.md`) no longer says its levels are
+  derived from CED feedback: they follow the sink's FFE-change requests (0xE) during link
+  training.
+- `doc/roadmap.md` no longer lists released versions (it stopped at 0.3.0); this changelog
+  is the record of what each release contains, and the roadmap covers what comes next.
+
 ## [0.5.0] - 2026-10-11
 
 ### Breaking changes
