@@ -108,10 +108,55 @@ pub struct LaneEqParams {
     pub tx_ffe_level: TxFfeLevel,
 }
 
-/// Equalization parameters passed from link training feedback to the PHY.
+/// Restrictions on the TxFFE components, as a compliance tester sets them.
 ///
-/// Carries per-lane adjustment data derived from character error detection (CED)
-/// feedback during the FRL training loop. `lane3` is `None` in 3-lane FRL mode.
+/// TxFFE combines two components: pre-shoot (pre-cursor) and de-emphasis (post-cursor).
+/// The sink's `Source_Test_Configuration` register (SCDC 0x35, bits 1–3) can restrict them,
+/// and the three bits are carried here exactly as written, for the whole link. Each bit's
+/// plain meaning:
+///
+/// - `pre_shoot_only` (`TxFFE_Pre_Shoot_Only`): pre-shoot only, no de-emphasis.
+/// - `de_emphasis_only` (`TxFFE_De_Emphasis_Only`): de-emphasis only, no pre-shoot.
+/// - `no_ffe` (`TxFFE_No_FFE`): neither.
+///
+/// The default (no bit set) restricts nothing. The bits accompany a compliance test: the
+/// reference drivers that act on them do so while the sink requests the DDE compliance
+/// pattern (LTP 4).
+///
+/// How to combine them is the PHY's to decide, because the reference implementations
+/// disagree and the specification text is not available to this crate. The AMD display
+/// driver (`dpcs30_program_eq_setting`) treats each "only" bit as removing the other
+/// component, so both set gives no FFE, and `no_ffe` overrides both. The Rockchip HDPTX
+/// PHY driver treats bits 1–2 as enabling their component, so both set gives full FFE,
+/// and does not read `no_ffe`. A backend documents which it follows. The level in each
+/// lane's [`LaneEqParams`] still applies within what the restrictions allow.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+pub struct TxFfeRestrictions {
+    /// `TxFFE_Pre_Shoot_Only` (bit 1): use pre-shoot only.
+    pub pre_shoot_only: bool,
+    /// `TxFFE_De_Emphasis_Only` (bit 2): use de-emphasis only.
+    pub de_emphasis_only: bool,
+    /// `TxFFE_No_FFE` (bit 3): use no TxFFE.
+    pub no_ffe: bool,
+}
+
+impl TxFfeRestrictions {
+    /// Constructs `TxFfeRestrictions` from the three bits, in register order.
+    pub const fn new(pre_shoot_only: bool, de_emphasis_only: bool, no_ffe: bool) -> Self {
+        Self {
+            pre_shoot_only,
+            de_emphasis_only,
+            no_ffe,
+        }
+    }
+}
+
+/// Equalization parameters passed from link training to the PHY.
+///
+/// Carries each lane's TxFFE level, raised during FRL link training when the sink requests
+/// it (an FFE change, 0xE, in its link training requests), and the link-wide
+/// [`TxFfeRestrictions`] a compliance tester may set. `lane3` is `None` in 3-lane FRL mode.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct EqParams {
@@ -123,6 +168,8 @@ pub struct EqParams {
     pub lane2: LaneEqParams,
     /// Equalization parameters for lane 3. `None` in 3-lane FRL mode.
     pub lane3: Option<LaneEqParams>,
+    /// Restrictions on the TxFFE components, for every lane. Defaults to none.
+    pub tx_ffe_restrictions: TxFfeRestrictions,
 }
 
 impl EqParams {
@@ -160,7 +207,9 @@ pub trait HdmiPhy {
     /// data islands and control periods.
     fn set_frl_output(&mut self, output: FrlOutput) -> Result<(), Self::Error>;
 
-    /// Adjust equalization parameters after link training feedback.
+    /// Apply equalization: each lane's TxFFE level, within the link-wide
+    /// [`TxFfeRestrictions`] in `params`. Each call carries the complete settings, so the
+    /// restrictions in force are always the last ones given.
     fn adjust_equalization(&mut self, params: EqParams) -> Result<(), Self::Error>;
 
     /// Enable or disable scrambling on the PHY.
@@ -391,6 +440,31 @@ mod tests {
     #[test]
     fn lane_eq_params_default_tx_ffe_level_is_0() {
         assert_eq!(LaneEqParams::default().tx_ffe_level, TxFfeLevel::default());
+    }
+
+    #[test]
+    fn tx_ffe_restrictions_new_takes_the_bits_in_register_order() {
+        let r = TxFfeRestrictions::new(true, false, false);
+        assert!(r.pre_shoot_only && !r.de_emphasis_only && !r.no_ffe);
+        let r = TxFfeRestrictions::new(false, true, false);
+        assert!(!r.pre_shoot_only && r.de_emphasis_only && !r.no_ffe);
+        let r = TxFfeRestrictions::new(false, false, true);
+        assert!(!r.pre_shoot_only && !r.de_emphasis_only && r.no_ffe);
+        // Combinations are carried as written; the PHY decides what they mean.
+        let both = TxFfeRestrictions::new(true, true, false);
+        assert!(both.pre_shoot_only && both.de_emphasis_only);
+    }
+
+    #[test]
+    fn eq_params_restrict_nothing_by_default() {
+        assert_eq!(
+            TxFfeRestrictions::default(),
+            TxFfeRestrictions::new(false, false, false)
+        );
+        assert_eq!(
+            EqParams::new().tx_ffe_restrictions,
+            TxFfeRestrictions::default()
+        );
     }
 
     #[test]

@@ -144,13 +144,21 @@ calling the PHY. Defining `LtpPattern` here keeps `hdmi-hal` free of any depende
 each an `Option<LtpPattern>` where `None` means no training pattern on that lane (and
 `lane3` is `None` in 3-lane FRL mode). The PHY applies the set as given; the link training
 crate tracks which pattern each lane carries, since a sink's request can leave a lane's
-previous pattern in place. `EqParams` carries per-lane equalization data derived from CED feedback during the FRL
-training loop: `lane0`, `lane1`, `lane2` (`LaneEqParams`) and `lane3`
-(`Option<LaneEqParams>`, `None` in 3-lane FRL mode). `LaneEqParams` carries the lane's
+previous pattern in place. `EqParams` carries the equalization the link training crate
+sets as the sink requests higher TxFFE levels (an FFE change, 0xE): `lane0`, `lane1`,
+`lane2` (`LaneEqParams`) and `lane3` (`Option<LaneEqParams>`, `None` in 3-lane FRL mode). `LaneEqParams` carries the lane's
 TxFFE level as a `TxFfeLevel`, a newtype that only holds 0–7, so a PHY backend never sees
 an out-of-range level. The lower maximum that applies at some FRL rates is advertised to
 the sink by the link training crate, which keeps each lane's level within it.
 `LaneEqParams` stays `#[non_exhaustive]` so further per-lane settings can be added.
+
+`EqParams` also carries `tx_ffe_restrictions`: the three TxFFE bits a compliance tester
+can set in `Source_Test_Configuration` (pre-shoot only, de-emphasis only, no FFE), for the
+whole link, exactly as written. Combining them is left to the PHY, which documents its
+choice: the reference implementations disagree (the AMD display driver treats both "only"
+bits as no FFE and lets no FFE override, the Rockchip HDPTX PHY driver treats them as
+full FFE and ignores no FFE), and the specification text is not available. Every
+`adjust_equalization` call carries the complete settings, restrictions included.
 
 `set_frl_output` takes `FrlOutput`: `GapOnly` (gap characters only, during link training
 and while waiting for the sink to start FRL) or `Active` (video, data islands and control
