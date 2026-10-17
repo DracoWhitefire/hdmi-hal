@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`TxFfeRestrictions`' documentation corrected and completed.** 0.5.1 said the
+  reference drivers act on the bits while the sink requests the DDE compliance pattern
+  (LTP 4); only the Rockchip driver does, the AMD driver applies them with every TxFFE
+  setting. The contract now also says that no bit set means unrestricted TxFFE for every
+  backend (the Rockchip reading, where bits enable components, applies only once a bit is
+  set), that a PHY unable to restrict its TxFFE may ignore the bits if it says so, and
+  that AMD's "both only bits" leaves neither component without being identical to its
+  `no_ffe` setting. No API change.
+
 ## [0.5.1] - 2026-10-12
 
 ### Added
