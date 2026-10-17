@@ -154,11 +154,15 @@ the sink by the link training crate, which keeps each lane's level within it.
 
 `EqParams` also carries `tx_ffe_restrictions`: the three TxFFE bits a compliance tester
 can set in `Source_Test_Configuration` (pre-shoot only, de-emphasis only, no FFE), for the
-whole link, exactly as written. Combining them is left to the PHY, which documents its
-choice: the reference implementations disagree (the AMD display driver treats both "only"
-bits as no FFE and lets no FFE override, the Rockchip HDPTX PHY driver treats them as
-full FFE and ignores no FFE), and the specification text is not available. Every
-`adjust_equalization` call carries the complete settings, restrictions included.
+whole link, exactly as written; no bit set means unrestricted TxFFE for every backend.
+Combining them is left to the PHY, which documents its choice: the reference
+implementations disagree (the AMD display driver treats both "only" bits as leaving
+neither component and lets no FFE override, the Rockchip HDPTX PHY driver treats them as
+full FFE and ignores no FFE), and the specification text is not available. A PHY that
+cannot restrict its TxFFE may ignore them and says so. The Rockchip driver applies them
+only after the sink requests the DDE compliance pattern (LTP 4) on a lane, the AMD driver
+with every TxFFE setting. Every `adjust_equalization` call carries the complete settings,
+restrictions included.
 
 `set_frl_output` takes `FrlOutput`: `GapOnly` (gap characters only, during link training
 and while waiting for the sink to start FRL) or `Active` (video, data islands and control
