@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Part of Ashlar** — the README now opens with a block naming the
+  [Ashlar](https://ashlar-display.org) stack and linking the other crates in it. Keywords
+  are aligned across the stack, with `ashlar` and `hdmi` on every crate; `ashlar` is added,
+  `display` is dropped. Categories gain `no-std::no-alloc`. The crate's `homepage` is now
+  the Ashlar website.
+
 - **`TxFfeRestrictions`' documentation corrected and completed.** 0.5.1 said the
   reference drivers act on the bits while the sink requests the DDE compliance pattern
   (LTP 4); only the Rockchip driver does, the AMD driver applies them with every TxFFE
