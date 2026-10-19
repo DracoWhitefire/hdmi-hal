@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+
+- **`ScdcTransport::read_block` is a required method.** Its default implementation (one
+  `read` per byte) is gone: a transport whose author never considered block reads would
+  read related registers, such as the CED counters, one at a time and could return values
+  torn by a sink update, with nothing to show for it. A transport that reads several
+  registers in one DDC transaction implements `read_block` with it; one that cannot adds
+  `fn read_block(&self, reg: u8, buf: &mut [u8]) -> Result<(), Self::Error> {
+  read_block_bytewise(self, reg, buf) }`, which behaves as the old default did.
+
+### Added
+
+- **`scdc::`read_block_bytewise`(transport, reg, buf)`** — `read_block` as one `read` per
+  byte, for transports that cannot burst-read; the documented exception to the "one
+  transaction" rule. Generic over `T: ScdcTransport + ?Sized`.
+- **`read_block`'s contract** is spelled out in its documentation: one DDC transaction or
+  an error, never split; no consistent snapshot promised (that is the sink's); an optional,
+  documented maximum length, above which a read is an error; an empty buffer is `Ok` with
+  no bus activity; on error the buffer is unspecified; a read past `0xFF` is unspecified.
+
 ### Changed
 
 - **Part of Ashlar** — the README now opens with a block naming the

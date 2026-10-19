@@ -79,9 +79,16 @@ pub trait ScdcTransport {
     fn read(&self, reg: u8) -> Result<u8, Self::Error>;
     fn write(&mut self, reg: u8, value: u8) -> Result<(), Self::Error>;
 
-    /// Default: one `read` per byte. Override for a single burst transaction.
-    fn read_block(&self, reg: u8, buf: &mut [u8]) -> Result<(), Self::Error> { ... }
+    /// One DDC transaction for the whole buffer, or an error. Required.
+    fn read_block(&self, reg: u8, buf: &mut [u8]) -> Result<(), Self::Error>;
 }
+
+/// One `read` per byte: for a transport that cannot burst-read.
+pub fn read_block_bytewise<T: ScdcTransport + ?Sized>(
+    transport: &T,
+    reg: u8,
+    buf: &mut [u8],
+) -> Result<(), T::Error> { ... }
 ```
 
 The trait operates at the raw register level: a one-byte address and a one-byte value.
@@ -93,12 +100,32 @@ move.
 The associated `Error` type is bounded by the implementing crate. A hardware backend
 exposes its own I²C error type; a simulator may use `Infallible`.
 
-**Block reads.** `read_block` reads consecutive registers into a buffer. Its default
-implementation is built on `read`, so existing transports keep working unchanged;
-transports that can burst-read override it so that related registers, such as the
-status flags the link training crate polls or the CED counters, are read in one
-transaction. A read past `0xFF` wraps to `0x00` in the default implementation. There is
-no block write: no consumer needs one yet.
+**Block reads.** `read_block` reads consecutive registers into a buffer in one DDC
+transaction, so that related registers, such as the status flags the link training
+crate polls or the CED counters, cannot be read half before and half after the sink
+updates them. The full contract is in the trait's documentation, the single source of
+truth; in short:
+
+- `buf[i]` is register `reg + i`, read in one transaction (offset write, repeated START,
+  `buf.len()` bytes read, STOP) or not at all: an implementation never splits the read
+  and never falls back to one register at a time, and concurrent calls do not interleave
+  on the bus.
+- One transaction is not a snapshot: whether the sink holds its registers still is up to
+  the sink.
+- An implementation may have a documented maximum length; a longer buffer is an error,
+  not split.
+- An empty buffer is `Ok` with no bus activity; on error the buffer is unspecified; a
+  read past `0xFF` is unspecified.
+
+The method is required. A transport that cannot burst-read implements it with
+`read_block_bytewise`, one `read` per byte, the documented exception to the "one
+transaction" rule. An earlier version had that loop as a default implementation; it was
+removed because a transport whose author never thought about block reads would then
+tear related registers without anyone noticing. With a required method, the choice is
+visible in every transport's code. The helper is generic over the trait, not an
+implementation for any platform, so it is consistent with "contracts only" below.
+
+There is no block write: no consumer needs one yet.
 
 ---
 
@@ -266,6 +293,10 @@ impl ScdcTransport for SimulatedScdc {
     fn write(&mut self, reg: u8, value: u8) -> Result<(), Infallible> {
         self.registers[reg as usize] = value;
         Ok(())
+    }
+
+    fn read_block(&self, reg: u8, buf: &mut [u8]) -> Result<(), Infallible> {
+        read_block_bytewise(self, reg, buf)
     }
 }
 ```

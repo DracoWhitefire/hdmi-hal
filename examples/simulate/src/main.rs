@@ -9,7 +9,7 @@
 use core::convert::Infallible;
 use display_types::cea861::hdmi_forum::HdmiForumFrl;
 use hdmi_hal::phy::{EqParams, FrlOutput, HdmiPhy, LanePatterns, LtpPattern, TxFfeLevel};
-use hdmi_hal::scdc::ScdcTransport;
+use hdmi_hal::scdc::{ScdcTransport, read_block_bytewise};
 
 // --- Simulated backends ----------------------------------------------------------
 
@@ -38,6 +38,11 @@ impl ScdcTransport for SimulatedScdc {
         // Same guarantee as `read`: u8 address space matches array length exactly.
         self.registers[reg as usize] = value;
         Ok(())
+    }
+
+    fn read_block(&self, reg: u8, buf: &mut [u8]) -> Result<(), Infallible> {
+        // A register array has no bus transaction to read in one go: one `read` per byte.
+        read_block_bytewise(self, reg, buf)
     }
 }
 
